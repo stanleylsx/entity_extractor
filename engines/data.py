@@ -100,7 +100,7 @@ class DataManager:
             segment_ids = self.padding(token_results.get('token_type_ids'))
             attention_mask = self.padding(token_results.get('attention_mask'))
 
-            if self.configs['model_type'] == 'bp':
+            if self.configs['model_type'] == 'ptm_bp':
                 label_vector = np.zeros((len(token_ids), len(self.categories), 2))
             else:
                 label_vector = np.zeros((self.num_labels, len(token_ids), len(token_ids)))
@@ -119,7 +119,7 @@ class DataManager:
                     entity_results.setdefault(class_id, set()).add(entity['entity'])
                     start_in_tokens = start_mapping[start_idx]
                     end_in_tokens = end_mapping[end_idx]
-                    if self.configs['model_type'] == 'bp':
+                    if self.configs['model_type'] == 'ptm_bp':
                         label_vector[start_in_tokens, class_id, 0] = 1
                         label_vector[end_in_tokens, class_id, 1] = 1
                     else:
@@ -147,7 +147,7 @@ class DataManager:
                                                  truncation=True)['offset_mapping']
         start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
         end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-        if self.configs['model_type'] == 'bp':
+        if self.configs['model_type'] == 'ptm_bp':
             model_output = torch.sigmoid(model_output)
             decision_threshold = float(self.configs['decision_threshold'])
             start = np.where(model_output[:, :, 0] > decision_threshold)

@@ -19,7 +19,7 @@ class Predictor:
         self.checkpoints_dir = configs['checkpoints_dir']
         self.model_name = configs['model_name']
         num_labels = len(self.data_manager.categories)
-        if configs['model_type'] == 'bp':
+        if configs['model_type'] == 'ptm_bp':
             from engines.models.BinaryPointer import BinaryPointer
             self.model = BinaryPointer(num_labels=num_labels).to(device)
         else:
@@ -63,8 +63,6 @@ class Predictor:
         train.validate(self.model, test_loader)
 
     def convert_onnx(self):
-        import onnx
-        from onnx_tf.backend import prepare
         max_sequence_length = self.data_manager.max_sequence_length
         dummy_input = torch.ones([1, max_sequence_length]).to('cpu').long()
         dummy_input = (dummy_input, dummy_input, dummy_input)

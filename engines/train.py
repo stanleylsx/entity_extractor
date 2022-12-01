@@ -55,10 +55,10 @@ class Train:
         return loss
 
     def init_model(self):
-        if self.configs['model_type'].lower() == 'bp':
+        if self.configs['model_type'].lower() == 'ptm_bp':
             from engines.models.BinaryPointer import BinaryPointer
             model = BinaryPointer(num_labels=self.num_labels).to(self.device)
-        elif self.configs['model_type'].lower() == 'gp':
+        elif self.configs['model_type'].lower() == 'ptm_gp':
             from engines.models.GlobalPointer import EffiGlobalPointer
             model = EffiGlobalPointer(num_labels=self.num_labels, device=self.device).to(self.device)
         else:

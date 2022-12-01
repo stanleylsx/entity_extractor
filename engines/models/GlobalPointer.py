@@ -3,13 +3,13 @@ import torch
 import torch.nn as nn
 from transformers import BertModel
 from engines.utils.onnx_fun import ONNXAdds
-from configure import mode
+from configure import mode, configure
 
 
 class EffiGlobalPointer(nn.Module):
     def __init__(self, num_labels, device, rope=True):
         super(EffiGlobalPointer, self).__init__()
-        self.encoder = BertModel.from_pretrained('bert-base-chinese')
+        self.encoder = BertModel.from_pretrained(configure['ptm'])
         self.device = device
         self.inner_dim = 64
         self.hidden_size = self.encoder.config.hidden_size
