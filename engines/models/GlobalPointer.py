@@ -60,8 +60,9 @@ class EffiGlobalPointer(nn.Module):
         logits = logits - mask * 1e12
         return logits
 
-    def forward(self, input_ids, attention_mask, token_type_ids):
-        context_outputs = self.encoder(input_ids, attention_mask, token_type_ids)
+    def forward(self, input_ids):
+        input_mask = torch.where(input_ids > 0, 1, 0).numpy()
+        context_outputs = self.encoder(input_ids, input_mask)
         last_hidden_state = context_outputs.last_hidden_state  # [2, 43, 768]
         seq_len = last_hidden_state.size()[1]
         outputs = self.dense_1(last_hidden_state)  # [2, 43, 128]
@@ -89,6 +90,6 @@ class EffiGlobalPointer(nn.Module):
         dense_out = torch.einsum('bnh->bhn', dense_out) / 2
         # logits[:, None] 增加一个维度
         logits = logits[:, None] + dense_out[:, ::2, None] + dense_out[:, 1::2, :, None]
-        logits = self.add_mask_tril(logits, mask=attention_mask)
+        logits = self.add_mask_tril(logits, mask=input_mask)
         probs = torch.sigmoid(logits)
         return logits, probs

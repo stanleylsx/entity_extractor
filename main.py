@@ -45,11 +45,11 @@ if __name__ == '__main__':
     logger.info(f'device: {device}')
     data_manager = DataManager(configure, logger=logger)
 
-    if mode == 'train':
-        logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
-        from engines.train import Train
-        logger.info('mode: train')
-        Train(configure, data_manager, device, logger).train()
+    # if mode == 'train':
+    #     logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
+    #     from engines.train import Train
+    #     logger.info('mode: train')
+    #     Train(configure, data_manager, device, logger).train()
     # elif mode == 'interactive_predict':
     #     logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
     #     logger.info('mode: predict_one')

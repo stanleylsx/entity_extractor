@@ -6,6 +6,7 @@
 from transformers import BertTokenizerFast
 import torch
 import os
+import json
 import pandas as pd
 import numpy as np
 
@@ -67,11 +68,27 @@ class DataManager:
         根据训练集生成词表
         :return:
         """
-        df = pd.read_csv(self.train_file, names=['token', 'label'], sep=' ')
-        if not self.dev_file == '':
-            dev_df = pd.read_csv(self.dev_file, names=['token', 'label'], sep=' ').sample(frac=1)
-            df = pd.concat([df, dev_df], axis=0)
-        tokens = list(set(df['token'][df['token'].notnull()]))
+        if self.configs['data_format'] == 'csv':
+            df = pd.read_csv(self.train_file, names=['token', 'label'], sep=' ')
+            if not self.dev_file == '':
+                dev_df = pd.read_csv(self.dev_file, names=['token', 'label'], sep=' ').sample(frac=1)
+                df = pd.concat([df, dev_df], axis=0)
+            tokens = list(set(df['token'][df['token'].notnull()]))
+        elif self.configs['data_format'] == 'json':
+            tokens = []
+            data = json.load(open(self.train_file, encoding='utf-8'))
+            if not self.dev_file == '':
+                dev_data = json.load(open(self.dev_file, encoding='utf-8'))
+                data.extend(dev_data)
+            for sentence in data:
+                text = sentence.get('text')
+                for char in list(text):
+                    if char.strip() not in ['\t', '']:
+                        tokens.extend(char)
+            tokens = list(set(tokens))
+        else:
+            tokens = []
+
         token2id = dict(zip(tokens, range(1, len(tokens) + 1)))
         id2token = dict(zip(range(1, len(tokens) + 1), tokens))
         id2token[0] = self.PADDING
@@ -84,6 +101,12 @@ class DataManager:
             for idx in id2token:
                 outfile.write(id2token[idx] + '\t' + str(idx) + '\n')
         return token2id, id2token
+
+    def csv_to_json(self, data):
+        pass
+
+    def json_to_csv(self, data):
+        pass
 
     def prepare_data(self, data):
         text_list = []

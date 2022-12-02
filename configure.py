@@ -18,17 +18,17 @@ cuda_device = -1
 
 configure = {
     # data format:
-    'data_format': 'csv',
+    'data_format': 'json',
     # 训练数据集
-    'train_file': 'data/example_datasets/train.csv',
+    'train_file': 'data/example_datasets1/train_data.json',
     # 验证数据集
-    'dev_file': 'data/example_datasets/dev.csv',
+    'dev_file': 'data/example_datasets1/dev_data.json',
     # 没有验证集时，从训练集抽取验证集比例
     'validation_rate': 0.15,
     # 测试数据集
     'test_file': '',
     # 存放词表的地方
-    'token_file': 'data/example_datasets/token2id.txt',
+    'token_file': 'data/example_datasets1/token2id.txt',
     # 使用的预训练模型
     'ptm': 'bert-base-chinese',
     # 使用的模型
@@ -42,6 +42,12 @@ configure = {
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
     'model_type': 'bilstm_crf',
+    # 选择lstm时，隐藏层大小
+    'hidden_dim': 200,
+    # Embedding向量维度
+    'embedding_dim': 300,
+    # 选择idcnn时filter的个数
+    'filter_nums': 64,
     # 模型保存的文件夹
     'checkpoints_dir': 'checkpoints/example_datasets',
     # 模型名字
@@ -60,6 +66,10 @@ configure = {
     'gan_method': 'pgd',
     # 对抗次数
     'attack_round': 3,
+    # 使用Multisample Dropout
+    # 使用Multisample Dropout后dropout会失效
+    'multisample_dropout': True,
+    'dropout_round': 5,
     # 是否进行warmup
     'warmup': False,
     # warmup方法，可选：linear、cosine

@@ -36,7 +36,7 @@ class Train:
     def calculate_loss(self, logits, labels, attention_mask):
         batch_size = logits.size(0)
         if self.configs['use_multilabel_categorical_cross_entropy']:
-            if self.configs['model_type'] == 'bp':
+            if self.configs['model_type'] == 'ptm_bp':
                 num_labels = self.num_labels * 2
             else:
                 num_labels = self.num_labels
@@ -44,7 +44,7 @@ class Train:
             label_vectors = labels.reshape(batch_size * num_labels, -1)
             loss = self.loss_function(model_output, label_vectors)
         else:
-            if self.configs['model_type'] == 'bp':
+            if self.configs['model_type'] == 'ptm_bp':
                 loss = self.loss_function(logits, labels)
                 loss = torch.sum(torch.mean(loss, 3), 2)
                 loss = torch.sum(loss * attention_mask) / torch.sum(attention_mask)
@@ -62,8 +62,8 @@ class Train:
             from engines.models.GlobalPointer import EffiGlobalPointer
             model = EffiGlobalPointer(num_labels=self.num_labels, device=self.device).to(self.device)
         else:
-            raise Exception('configs["model_type"] is not supported! '
-                            'Available options are bp(binary pointer) and gp(global pointer)')
+            from engines.models.LabelSequence import LabelSequence
+            model = LabelSequence(vocab_size=self.data_manager.vocab_size, num_labels=self.num_labels).to(self.device)
 
         if self.configs['use_gan']:
             if self.configs['gan_method'].lower() == 'fgm':
