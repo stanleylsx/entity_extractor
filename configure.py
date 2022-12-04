@@ -16,6 +16,7 @@ mode = 'train'
 use_cuda = True
 cuda_device = -1
 
+
 configure = {
     # data format:
     'data_format': 'json',
@@ -31,6 +32,10 @@ configure = {
     'token_file': 'data/example_datasets1/token2id.txt',
     # 使用的预训练模型
     'ptm': 'bert-base-chinese',
+    # 使用的方法
+    # sequence label:序列标注
+    # span:方式
+    'method': 'sequence_label',
     # 使用的模型
     # sequence label方式:
     # ptm crf: ptm_crf
@@ -53,7 +58,7 @@ configure = {
     # 模型名字
     'model_name': 'best_model.pkl',
     # 类别列表
-    'classes': ['B-PER', 'I-PER', 'B-LOC', 'I-LOC', 'B-ORG', 'I-ORG', 'O'],
+    'classes': ['company', 'position', 'detail'],
     # decision_threshold
     'decision_threshold': 0.5,
     # 是否使用苏神的多标签分类的损失函数，默认使用BCELoss

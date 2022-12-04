@@ -6,6 +6,7 @@
 from transformers import BertTokenizerFast
 import torch
 import os
+import re
 import json
 import pandas as pd
 import numpy as np
@@ -102,63 +103,132 @@ class DataManager:
                 outfile.write(id2token[idx] + '\t' + str(idx) + '\n')
         return token2id, id2token
 
-    def csv_to_json(self, data):
-        pass
+    @staticmethod
+    def split_csv(data, validation_rate):
+        lines = data.token.isnull().sum()
+        null = data.token.isnull().to_frame('isnull')
+        null = null.loc[null['isnull']]
+        train_lines = int(round(lines * (1 - validation_rate), 0))
+        train_split = null.iloc[[train_lines]].index.values[0]
+        train_df, dev_df = data[:train_split], data[train_split:]
+        return train_df, dev_df
 
-    def json_to_csv(self, data):
-        pass
+    def csv_to_json(self, data):
+        data_list = []
+        sentence = []
+        each_label = []
+        for index, record in data.iterrows():
+            token = record.token
+            label = record.label
+            entities = []
+            each_simple = {'text': ''}
+            if str(token) == str(np.nan):
+                each_simple['text'] = ''.join(sentence)
+                start_idx = 0
+                end_idx = 0
+                while start_idx <= len(sentence) - 1:
+                    if each_label[start_idx] in self.classes:
+                        if re.findall(r'^B-', each_label[start_idx]):
+                            entity_dict = {'start_idx': start_idx, 'type': re.split(r'^B-', each_label[start_idx])[-1]}
+                            entity = sentence[start_idx]
+                            end_idx = start_idx + 1
+                            while re.findall(r'^I-', each_label[end_idx]):
+                                entity += sentence[end_idx]
+                                end_idx += 1
+                                if end_idx == len(sentence):
+                                    break
+                            entity_dict['end_idx'] = end_idx - 1
+                            entity_dict['entity'] = entity
+                            entities.append(entity_dict)
+                    end_idx += 1
+                    start_idx += 1
+                each_simple['entities'] = entities
+                data_list.append(each_simple)
+                sentence = []
+                each_label = []
+            else:
+                sentence.append(token)
+                each_label.append(label)
+        return data_list
+
+    @staticmethod
+    def json_to_csv(data):
+        data_list = []
+        for sentence in data:
+            tokens = list(sentence['text'])
+            labels = len(tokens) * ['O']
+            if sentence['entities']:
+                for entity in sentence['entities']:
+                    try:
+                        start_idx = entity['start_idx']
+                        end_idx = entity['end_idx']
+                        entity_type = entity['type']
+                        labels[start_idx] = 'B-' + entity_type
+                        for i in range(start_idx + 1, end_idx + 1):
+                            labels[i] = 'I-' + entity_type
+                    except IndexError:
+                        continue
+            for item in zip(tokens, labels):
+                data_list.append((item[0], item[1]))
+            data_list.append(np.nan)
+        data_list = data_list[:-1]
+        df = pd.DataFrame(data_list, columns=['token', 'label'])
+        return df
 
     def prepare_data(self, data):
-        text_list = []
-        entity_results_list = []
-        token_ids_list = []
-        segment_ids_list = []
-        attention_mask_list = []
-        label_vectors = []
-        for item in data:
-            text = item.get('text')
-            entity_results = {}
-            token_results = self.tokenizer(text)
-            token_ids = self.padding(token_results.get('input_ids'))
-            segment_ids = self.padding(token_results.get('token_type_ids'))
-            attention_mask = self.padding(token_results.get('attention_mask'))
+        if self.configs['method'] == 'span':
+            text_list = []
+            entity_results_list = []
+            token_ids_list = []
+            segment_ids_list = []
+            attention_mask_list = []
+            label_vectors = []
+            for item in data:
+                text = item.get('text')
+                entity_results = {}
+                token_results = self.tokenizer(text)
+                token_ids = self.padding(token_results.get('input_ids'))
+                segment_ids = self.padding(token_results.get('token_type_ids'))
+                attention_mask = self.padding(token_results.get('attention_mask'))
 
-            if self.configs['model_type'] == 'ptm_bp':
-                label_vector = np.zeros((len(token_ids), len(self.categories), 2))
-            else:
-                label_vector = np.zeros((self.num_labels, len(token_ids), len(token_ids)))
+                if self.configs['model_type'] == 'ptm_bp':
+                    label_vector = np.zeros((len(token_ids), len(self.categories), 2))
+                else:
+                    label_vector = np.zeros((self.num_labels, len(token_ids), len(token_ids)))
 
-            for entity in item.get('entities'):
-                start_idx = entity['start_idx']
-                end_idx = entity['end_idx']
-                type_class = entity['type']
-                token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
-                                                         max_length=self.max_sequence_length,
-                                                         truncation=True)['offset_mapping']
-                start_mapping = {j[0]: i for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-                end_mapping = {j[-1] - 1: i for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-                if start_idx in start_mapping and end_idx in end_mapping:
-                    class_id = self.categories[type_class]
-                    entity_results.setdefault(class_id, set()).add(entity['entity'])
-                    start_in_tokens = start_mapping[start_idx]
-                    end_in_tokens = end_mapping[end_idx]
-                    if self.configs['model_type'] == 'ptm_bp':
-                        label_vector[start_in_tokens, class_id, 0] = 1
-                        label_vector[end_in_tokens, class_id, 1] = 1
-                    else:
-                        label_vector[class_id, start_in_tokens, end_in_tokens] = 1
+                for entity in item.get('entities'):
+                    start_idx = entity['start_idx']
+                    end_idx = entity['end_idx']
+                    type_class = entity['type']
+                    token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
+                                                             max_length=self.max_sequence_length,
+                                                             truncation=True)['offset_mapping']
+                    start_mapping = {j[0]: i for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+                    end_mapping = {j[-1] - 1: i for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+                    if start_idx in start_mapping and end_idx in end_mapping:
+                        class_id = self.categories[type_class]
+                        entity_results.setdefault(class_id, set()).add(entity['entity'])
+                        start_in_tokens = start_mapping[start_idx]
+                        end_in_tokens = end_mapping[end_idx]
+                        if self.configs['model_type'] == 'ptm_bp':
+                            label_vector[start_in_tokens, class_id, 0] = 1
+                            label_vector[end_in_tokens, class_id, 1] = 1
+                        else:
+                            label_vector[class_id, start_in_tokens, end_in_tokens] = 1
 
-            text_list.append(text)
-            entity_results_list.append(entity_results)
-            token_ids_list.append(token_ids)
-            segment_ids_list.append(segment_ids)
-            attention_mask_list.append(attention_mask)
-            label_vectors.append(label_vector)
-        token_ids_list = torch.tensor(token_ids_list)
-        segment_ids_list = torch.tensor(segment_ids_list)
-        attention_mask_list = torch.tensor(attention_mask_list)
-        label_vectors = torch.tensor(np.array(label_vectors))
-        return text_list, entity_results_list, token_ids_list, segment_ids_list, attention_mask_list, label_vectors
+                text_list.append(text)
+                entity_results_list.append(entity_results)
+                token_ids_list.append(token_ids)
+                segment_ids_list.append(segment_ids)
+                attention_mask_list.append(attention_mask)
+                label_vectors.append(label_vector)
+            token_ids_list = torch.tensor(token_ids_list)
+            segment_ids_list = torch.tensor(segment_ids_list)
+            attention_mask_list = torch.tensor(attention_mask_list)
+            label_vectors = torch.tensor(np.array(label_vectors))
+            return text_list, entity_results_list, token_ids_list, segment_ids_list, attention_mask_list, label_vectors
+        else:
+            pass
 
     def extract_entities(self, text, model_output):
         """

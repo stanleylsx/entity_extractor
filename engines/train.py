@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 import json
 import torch
 import time
+import pandas as pd
 import os
 
 
@@ -97,15 +98,27 @@ class Train:
     def split_data(self):
         train_file = self.configs['train_file']
         dev_file = self.configs['dev_file']
-        train_data = json.load(open(train_file, encoding='utf-8'))
 
-        if dev_file == '':
-            self.logger.info('generate validation dataset...')
-            validation_rate = self.configs['validation_rate']
-            ratio = 1 - validation_rate
-            train_data, dev_data = train_data[:int(ratio * len(train_data))], train_data[int(ratio * len(train_data)):]
+        if self.configs['data_format'] == 'json':
+            train_data = json.load(open(train_file, encoding='utf-8'))
+            if dev_file == '':
+                self.logger.info('generate validation dataset...')
+                validation_rate = self.configs['validation_rate']
+                ratio = 1 - validation_rate
+                train_data, dev_data = train_data[:int(ratio * len(train_data))], train_data[int(ratio * len(train_data)):]
+            else:
+                dev_data = json.load(open(dev_file, encoding='utf-8'))
+
+        elif self.configs['data_format'] == 'csv':
+            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
+            if dev_file == '':
+                self.logger.info('generate validation dataset...')
+                validation_rate = self.configs['validation_rate']
+                train_data, dev_data = self.data_manager.split_csv(train_data, validation_rate)
+            else:
+                dev_data = pd.read_csv(dev_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
         else:
-            dev_data = json.load(open(dev_file, encoding='utf-8'))
+            train_data, dev_data = None, None
 
         self.logger.info('loading train data...')
         train_loader = DataLoader(
