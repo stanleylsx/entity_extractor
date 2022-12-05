@@ -18,18 +18,16 @@ cuda_device = -1
 
 
 configure = {
-    # data format:
-    'data_format': 'json',
     # 训练数据集
-    'train_file': 'data/example_datasets1/train_data.json',
+    'train_file': 'data/example_datasets/dev_data.csv',
     # 验证数据集
-    'dev_file': 'data/example_datasets1/dev_data.json',
+    'dev_file': '',
     # 没有验证集时，从训练集抽取验证集比例
     'validation_rate': 0.15,
     # 测试数据集
     'test_file': '',
     # 存放词表的地方
-    'token_file': 'data/example_datasets1/token2id.txt',
+    'token_file': 'data/example_datasets/token2id.txt',
     # 使用的预训练模型
     'ptm': 'bert-base-chinese',
     # 使用的方法
@@ -46,7 +44,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'bilstm_crf',
+    'model_type': 'ptm_bilstm_crf',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -58,7 +56,7 @@ configure = {
     # 模型名字
     'model_name': 'best_model.pkl',
     # 类别列表
-    'classes': ['company', 'position', 'detail'],
+    'classes': ['B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-PER', 'I-PER', 'O'],
     # decision_threshold
     'decision_threshold': 0.5,
     # 是否使用苏神的多标签分类的损失函数，默认使用BCELoss

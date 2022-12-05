@@ -64,7 +64,7 @@ class Train:
             model = EffiGlobalPointer(num_labels=self.num_labels, device=self.device).to(self.device)
         else:
             from engines.models.LabelSequence import LabelSequence
-            model = LabelSequence(vocab_size=self.data_manager.vocab_size, num_labels=self.num_labels).to(self.device)
+            model = LabelSequence(vocab_size=self.data_manager.vocab_size, num_labels=self.num_labels+1).to(self.device)
 
         if self.configs['use_gan']:
             if self.configs['gan_method'].lower() == 'fgm':
@@ -98,27 +98,24 @@ class Train:
     def split_data(self):
         train_file = self.configs['train_file']
         dev_file = self.configs['dev_file']
-
-        if self.configs['data_format'] == 'json':
+        train_data, dev_data = None, None
+        if self.data_manager.file_format == 'json':
             train_data = json.load(open(train_file, encoding='utf-8'))
-            if dev_file == '':
-                self.logger.info('generate validation dataset...')
-                validation_rate = self.configs['validation_rate']
-                ratio = 1 - validation_rate
-                train_data, dev_data = train_data[:int(ratio * len(train_data))], train_data[int(ratio * len(train_data)):]
-            else:
+            if dev_file != '':
                 dev_data = json.load(open(dev_file, encoding='utf-8'))
 
-        elif self.configs['data_format'] == 'csv':
+        elif self.data_manager.file_format == 'csv':
             train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
-            if dev_file == '':
-                self.logger.info('generate validation dataset...')
-                validation_rate = self.configs['validation_rate']
-                train_data, dev_data = self.data_manager.split_csv(train_data, validation_rate)
-            else:
+            train_data = self.data_manager.csv_to_json(train_data)
+            if dev_file != '':
                 dev_data = pd.read_csv(dev_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
-        else:
-            train_data, dev_data = None, None
+                dev_data = self.data_manager.csv_to_json(dev_data)
+
+        if dev_file == '':
+            self.logger.info('generate validation dataset...')
+            validation_rate = self.configs['validation_rate']
+            ratio = 1 - validation_rate
+            train_data, dev_data = train_data[:int(ratio * len(train_data))], train_data[int(ratio * len(train_data)):]
 
         self.logger.info('loading train data...')
         train_loader = DataLoader(
@@ -180,13 +177,12 @@ class Train:
             start_time = time.time()
             step, loss, loss_sum = 0, 0.0, 0.0
             for batch in tqdm(train_loader):
-                _, _, token_ids, token_type_ids, attention_mask, label_vectors = batch
+                _, _, token_ids, label_vectors = batch
                 token_ids = token_ids.to(self.device)
-                attention_mask = attention_mask.to(self.device)
-                token_type_ids = token_type_ids.to(self.device)
                 label_vectors = label_vectors.to(self.device)
                 self.optimizer.zero_grad()
-                logits, _ = model(token_ids, attention_mask, token_type_ids)
+                logits, _ = model(token_ids)
+                attention_mask = torch.where(token_ids > 0, 1, 0)
                 loss = self.calculate_loss(logits, label_vectors, attention_mask)
                 loss.backward()
                 loss_sum += loss.item()
@@ -194,7 +190,7 @@ class Train:
                     k = self.configs['attack_round']
                     if self.configs['gan_method'] == 'fgm':
                         self.gan.attack()
-                        logits, _ = model(token_ids, attention_mask, token_type_ids)
+                        logits, _ = model(token_ids)
                         loss = self.calculate_loss(logits, label_vectors, attention_mask)
                         loss.backward()
                         self.gan.restore()  # 恢复embedding参数
@@ -206,7 +202,7 @@ class Train:
                                 model.zero_grad()
                             else:
                                 self.gan.restore_grad()
-                            logits, _ = model(token_ids, attention_mask, token_type_ids)
+                            logits, _ = model(token_ids)
                             loss = self.calculate_loss(logits, label_vectors, attention_mask)
                             loss.backward()
                         self.gan.restore()
@@ -261,7 +257,7 @@ class Train:
             model.eval()
             self.logger.info('start evaluate engines...')
             for batch in tqdm(dev_loader):
-                texts, entity_results, token_ids, segment_ids, attention_mask, _ = batch
+                texts, entity_results, token_ids, _ = batch
                 token_ids = token_ids.to(self.device)
                 segment_ids = segment_ids.to(self.device)
                 attention_mask = attention_mask.to(self.device)

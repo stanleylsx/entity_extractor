@@ -4,11 +4,14 @@
 # @File : data.py
 # @Software: PyCharm
 from transformers import BertTokenizerFast
+from tqdm import tqdm
 import torch
 import os
 import re
 import json
+import math
 import pandas as pd
+import asyncio
 import numpy as np
 
 
@@ -18,6 +21,7 @@ class DataManager:
         self.configs = configs
         self.train_file = self.configs['train_file']
         self.dev_file = self.configs['dev_file']
+        self.file_format = self.train_file.split('.')[-1]
         self.batch_size = configs['batch_size']
         self.token_file = configs['token_file']
         self.max_sequence_length = configs['max_sequence_length']
@@ -32,16 +36,17 @@ class DataManager:
             self.vocab_size = len(self.tokenizer)
 
         self.classes = configs['classes']
-
         self.num_labels = len(self.classes)
-        self.categories = {configs['classes'][index]: index for index in range(0, len(configs['classes']))}
+        self.categories = {configs['classes'][index]: index + 1 for index in range(0, len(configs['classes']))}
         self.reverse_categories = {class_id: class_name for class_name, class_id in self.categories.items()}
 
-    def padding(self, token):
+    def padding(self, token, pad_token=True):
         if len(token) < self.max_sequence_length:
             token += [0 for _ in range(self.max_sequence_length - len(token))]
         else:
             token = token[:self.max_sequence_length]
+            if pad_token and 'ptm' in self.configs['model_type']:
+                token[-1] = 102
         return token
 
     def load_vocab(self):
@@ -69,13 +74,13 @@ class DataManager:
         根据训练集生成词表
         :return:
         """
-        if self.configs['data_format'] == 'csv':
+        if self.file_format == 'csv':
             df = pd.read_csv(self.train_file, names=['token', 'label'], sep=' ')
             if not self.dev_file == '':
                 dev_df = pd.read_csv(self.dev_file, names=['token', 'label'], sep=' ').sample(frac=1)
                 df = pd.concat([df, dev_df], axis=0)
             tokens = list(set(df['token'][df['token'].notnull()]))
-        elif self.configs['data_format'] == 'json':
+        elif self.file_format == 'json':
             tokens = []
             data = json.load(open(self.train_file, encoding='utf-8'))
             if not self.dev_file == '':
@@ -104,92 +109,114 @@ class DataManager:
         return token2id, id2token
 
     @staticmethod
-    def split_csv(data, validation_rate):
-        lines = data.token.isnull().sum()
+    def split_csv(data, batch_nums=2000):
         null = data.token.isnull().to_frame('isnull')
         null = null.loc[null['isnull']]
-        train_lines = int(round(lines * (1 - validation_rate), 0))
-        train_split = null.iloc[[train_lines]].index.values[0]
-        train_df, dev_df = data[:train_split], data[train_split:]
-        return train_df, dev_df
-
-    def csv_to_json(self, data):
-        data_list = []
-        sentence = []
-        each_label = []
-        for index, record in data.iterrows():
-            token = record.token
-            label = record.label
-            entities = []
-            each_simple = {'text': ''}
-            if str(token) == str(np.nan):
-                each_simple['text'] = ''.join(sentence)
-                start_idx = 0
-                end_idx = 0
-                while start_idx <= len(sentence) - 1:
-                    if each_label[start_idx] in self.classes:
-                        if re.findall(r'^B-', each_label[start_idx]):
-                            entity_dict = {'start_idx': start_idx, 'type': re.split(r'^B-', each_label[start_idx])[-1]}
-                            entity = sentence[start_idx]
-                            end_idx = start_idx + 1
-                            while re.findall(r'^I-', each_label[end_idx]):
-                                entity += sentence[end_idx]
-                                end_idx += 1
-                                if end_idx == len(sentence):
-                                    break
-                            entity_dict['end_idx'] = end_idx - 1
-                            entity_dict['entity'] = entity
-                            entities.append(entity_dict)
-                    end_idx += 1
-                    start_idx += 1
-                each_simple['entities'] = entities
-                data_list.append(each_simple)
-                sentence = []
-                each_label = []
+        df_num = len(null)
+        n = math.ceil(df_num / batch_nums)
+        df_list = []
+        past_last_index = 0
+        for index in range(n):
+            if index < n - 1:
+                df_null = null[batch_nums * index: batch_nums * (index + 1)]
             else:
-                sentence.append(token)
-                each_label.append(label)
-        return data_list
+                df_null = null[batch_nums * index:]
+            df_part = df_null.iloc[[-1]].index.values[0] + 1
+            df_list.append(data[past_last_index:df_part - 1])
+            past_last_index = df_part
+        return df_list
+
+    def csv_to_json(self, df):
+        async def csv_to_json_async(sub_df):
+            result = []
+            sentence = []
+            each_label = []
+            lines = sub_df.token.isnull().sum()
+            with tqdm(total=lines, desc='loading data') as bar:
+                for index, record in sub_df.iterrows():
+                    token = record.token
+                    label = record.label
+                    entities = []
+                    each_simple = {'text': ''}
+                    if str(token) == str(np.nan):
+                        each_simple['text'] = ''.join(sentence)
+                        start_idx = 0
+                        end_idx = 0
+                        while start_idx <= len(sentence) - 1:
+                            if each_label[start_idx] in self.classes:
+                                if re.findall(r'^B-', each_label[start_idx]):
+                                    entity_dict = {'start_idx': start_idx,
+                                                   'type': re.split(r'^B-', each_label[start_idx])[-1]}
+                                    entity = sentence[start_idx]
+                                    end_idx = start_idx + 1
+                                    while re.findall(r'^I-', each_label[end_idx]):
+                                        entity += sentence[end_idx]
+                                        end_idx += 1
+                                        if end_idx == len(sentence):
+                                            break
+                                    entity_dict['end_idx'] = end_idx - 1
+                                    entity_dict['entity'] = entity
+                                    entities.append(entity_dict)
+                            end_idx += 1
+                            start_idx += 1
+                        each_simple['entities'] = entities
+                        result.append(each_simple)
+                        sentence = []
+                        each_label = []
+                        bar.update()
+                    else:
+                        sentence.append(token)
+                        each_label.append(label)
+            return result
+        self.logger.info('transfer csv to json!')
+        data = []
+        sub_data_list = self.split_csv(df)
+        loop = asyncio.get_event_loop()
+        asyncio.set_event_loop(loop)
+        r = asyncio.gather(*[csv_to_json_async(items) for items in tqdm(sub_data_list)])
+        data_list = loop.run_until_complete(r)
+        for item in data_list:
+            data.extend(item)
+        return data
 
     @staticmethod
-    def json_to_csv(data):
-        data_list = []
-        for sentence in data:
-            tokens = list(sentence['text'])
-            labels = len(tokens) * ['O']
-            if sentence['entities']:
-                for entity in sentence['entities']:
-                    try:
-                        start_idx = entity['start_idx']
-                        end_idx = entity['end_idx']
-                        entity_type = entity['type']
-                        labels[start_idx] = 'B-' + entity_type
-                        for i in range(start_idx + 1, end_idx + 1):
-                            labels[i] = 'I-' + entity_type
-                    except IndexError:
-                        continue
-            for item in zip(tokens, labels):
-                data_list.append((item[0], item[1]))
-            data_list.append(np.nan)
-        data_list = data_list[:-1]
-        df = pd.DataFrame(data_list, columns=['token', 'label'])
-        return df
+    def get_sequence_label(item_dict):
+        tokens = list(item_dict['text'])
+        labels = len(tokens) * ['O']
+        if item_dict['entities']:
+            for entity in item_dict['entities']:
+                try:
+                    start_idx = entity['start_idx']
+                    end_idx = entity['end_idx']
+                    entity_type = entity['type']
+                    labels[start_idx] = 'B-' + entity_type
+                    for i in range(start_idx + 1, end_idx + 1):
+                        labels[i] = 'I-' + entity_type
+                except IndexError:
+                    continue
+        return labels
+
+    def tokenizer_for_sentences(self, sent):
+        sent = list(sent)
+        tokens = []
+        for token in sent:
+            if token in self.token2id:
+                tokens.append(self.token2id[token])
+            else:
+                tokens.append(self.token2id[self.UNKNOWN])
+        return tokens
 
     def prepare_data(self, data):
+        text_list = []
+        entity_results_list = []
+        token_ids_list = []
+        label_vectors = []
         if self.configs['method'] == 'span':
-            text_list = []
-            entity_results_list = []
-            token_ids_list = []
-            segment_ids_list = []
-            attention_mask_list = []
-            label_vectors = []
             for item in data:
                 text = item.get('text')
                 entity_results = {}
                 token_results = self.tokenizer(text)
                 token_ids = self.padding(token_results.get('input_ids'))
-                segment_ids = self.padding(token_results.get('token_type_ids'))
-                attention_mask = self.padding(token_results.get('attention_mask'))
 
                 if self.configs['model_type'] == 'ptm_bp':
                     label_vector = np.zeros((len(token_ids), len(self.categories), 2))
@@ -219,16 +246,25 @@ class DataManager:
                 text_list.append(text)
                 entity_results_list.append(entity_results)
                 token_ids_list.append(token_ids)
-                segment_ids_list.append(segment_ids)
-                attention_mask_list.append(attention_mask)
                 label_vectors.append(label_vector)
             token_ids_list = torch.tensor(token_ids_list)
-            segment_ids_list = torch.tensor(segment_ids_list)
-            attention_mask_list = torch.tensor(attention_mask_list)
             label_vectors = torch.tensor(np.array(label_vectors))
-            return text_list, entity_results_list, token_ids_list, segment_ids_list, attention_mask_list, label_vectors
-        else:
-            pass
+        elif self.configs['method'] == 'sequence_label':
+            for item in data:
+                text = item.get('text')
+                if 'ptm' in self.configs['model_type']:
+                    token_results = self.tokenizer(text)
+                    token_ids = token_results.get('input_ids')
+                else:
+                    token_ids = self.tokenizer_for_sentences(text)
+                token_ids = self.padding(token_ids)
+                labels = [self.categories[label] for label in self.get_sequence_label(item)]
+                label_vector = self.padding(labels, pad_token=False)
+                token_ids_list.append(token_ids)
+                label_vectors.append(label_vector)
+            token_ids_list = torch.tensor(token_ids_list)
+            label_vectors = torch.tensor(np.array(label_vectors))
+        return text_list, entity_results_list, token_ids_list, label_vectors
 
     def extract_entities(self, text, model_output):
         """
