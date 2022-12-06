@@ -19,7 +19,7 @@ class Train:
         self.logger = logger
         self.data_manager = data_manager
         self.batch_size = self.configs['batch_size']
-        self.num_labels = len(configs['classes'])
+        self.num_labels = data_manager.num_labels
         self.checkpoints_dir = configs['checkpoints_dir']
         self.model_name = configs['model_name']
         self.epoch = configs['epoch']
@@ -268,7 +268,7 @@ class Train:
                     logits, _ = model(token_ids)
                     logits = logits.to('cpu')
                     for text, logit, entity_result in zip(texts, logits, entity_results):
-                        p_results = self.data_manager.extract_entities(text, logit)
+                        p_results = self.data_manager.extract_entities_from_span(text, logit)
                         for class_id, entity_set in entity_result.items():
                             p_entity_set = p_results.get(class_id)
                             if p_entity_set is None:
@@ -289,11 +289,11 @@ class Train:
             results_of_each_entity[class_name]['recall'] = recall
 
         f1 = 0.0
-        for class_id, performance in results_of_each_entity.items():
+        for entity, performance in results_of_each_entity.items():
             f1 += performance['f1']
             # 打印每个类别的指标
-            self.logger.info('class_name: %s, precision: %.4f, recall: %.4f, f1: %.4f'
-                        % (class_id, performance['precision'], performance['recall'], performance['f1']))
+            self.logger.info('entity_name: %s, precision: %.4f, recall: %.4f, f1: %.4f'
+                        % (entity, performance['precision'], performance['recall'], performance['f1']))
         # 这里算得是所有类别的平均f1值
         f1 = f1 / len(results_of_each_entity)
         return f1

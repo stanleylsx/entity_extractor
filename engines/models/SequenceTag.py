@@ -70,6 +70,7 @@ class SequenceTag(nn.Module, ABC):
             filter_nums = configure['filter_nums']
             self.idcnn = IDCNN(filter_nums, embedding_dim)
             self.liner = nn.Linear(filter_nums, hidden_dim)
+
         self.dropout = nn.Dropout(dropout_rate)
         self.fc = nn.Linear(hidden_dim, num_labels)
         self.crf = CRF(num_tags=num_labels, batch_first=True)
