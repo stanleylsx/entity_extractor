@@ -63,8 +63,8 @@ class Train:
             from engines.models.GlobalPointer import EffiGlobalPointer
             model = EffiGlobalPointer(num_labels=self.num_labels, device=self.device).to(self.device)
         else:
-            from engines.models.LabelSequence import LabelSequence
-            model = LabelSequence(vocab_size=self.data_manager.vocab_size, num_labels=self.num_labels+1).to(self.device)
+            from engines.models.SequenceTag import SequenceTag
+            model = SequenceTag(vocab_size=self.data_manager.vocab_size, num_labels=self.num_labels+1).to(self.device)
 
         if self.configs['use_gan']:
             if self.configs['gan_method'].lower() == 'fgm':
@@ -105,7 +105,7 @@ class Train:
                 dev_data = json.load(open(dev_file, encoding='utf-8'))
 
         elif self.data_manager.file_format == 'csv':
-            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
+            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)[:2000]
             train_data = self.data_manager.csv_to_json(train_data)
             if dev_file != '':
                 dev_data = pd.read_csv(dev_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
@@ -182,7 +182,7 @@ class Train:
                 attention_mask = torch.where(token_ids > 0, 1, 0).to(self.device)
                 label_vectors = label_vectors.to(self.device)
                 self.optimizer.zero_grad()
-                if self.configs['method'] == 'sequence_label':
+                if self.configs['method'] == 'sequence_tag':
                     loss = model(token_ids, label_vectors)
                 else:
                     logits, _ = model(token_ids)
@@ -260,25 +260,26 @@ class Train:
             model.eval()
             self.logger.info('start evaluate engines...')
             for batch in tqdm(dev_loader):
-                texts, entity_results, token_ids, _ = batch
+                texts, entity_results, token_ids, label_vectors = batch
                 token_ids = token_ids.to(self.device)
-                segment_ids = segment_ids.to(self.device)
-                attention_mask = attention_mask.to(self.device)
-                logits, _ = model(token_ids, attention_mask, segment_ids)
-                logits = logits.to('cpu')
-                for text, logit, entity_result in zip(texts, logits, entity_results):
-                    p_results = self.data_manager.extract_entities(text, logit)
-                    for class_id, entity_set in entity_result.items():
-                        p_entity_set = p_results.get(class_id)
-                        if p_entity_set is None:
-                            # 没预测出来
-                            p_entity_set = set()
-                        # 预测出来并且正确个数
-                        counts[class_id]['A'] += len(p_entity_set & entity_set)
-                        # 预测出来的结果个数
-                        counts[class_id]['B'] += len(p_entity_set)
-                        # 真实的结果个数
-                        counts[class_id]['C'] += len(entity_set)
+                if self.configs['method'] == 'sequence_tag':
+                    decode = model(token_ids)
+                else:
+                    logits, _ = model(token_ids)
+                    logits = logits.to('cpu')
+                    for text, logit, entity_result in zip(texts, logits, entity_results):
+                        p_results = self.data_manager.extract_entities(text, logit)
+                        for class_id, entity_set in entity_result.items():
+                            p_entity_set = p_results.get(class_id)
+                            if p_entity_set is None:
+                                # 没预测出来
+                                p_entity_set = set()
+                            # 预测出来并且正确个数
+                            counts[class_id]['A'] += len(p_entity_set & entity_set)
+                            # 预测出来的结果个数
+                            counts[class_id]['B'] += len(p_entity_set)
+                            # 真实的结果个数
+                            counts[class_id]['C'] += len(entity_set)
         for class_id, count in counts.items():
             f1, precision, recall = 2 * count['A'] / (
                     count['B'] + count['C']), count['A'] / count['B'], count['A'] / count['C']

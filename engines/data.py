@@ -39,6 +39,9 @@ class DataManager:
         self.num_labels = len(self.classes)
         self.categories = {configs['classes'][index]: index + 1 for index in range(0, len(configs['classes']))}
         self.reverse_categories = {class_id: class_name for class_name, class_id in self.categories.items()}
+        if self.file_format == 'csv':
+            self.categories_st, self.reverse_categories_st = self.transfer_labels()
+
 
     def padding(self, token, pad_token=True):
         if len(token) < self.max_sequence_length:
@@ -206,6 +209,13 @@ class DataManager:
                 tokens.append(self.token2id[self.UNKNOWN])
         return tokens
 
+    def transfer_labels(self):
+        transfer_tags = list(set([re.split(r'^B-', tag)[-1] for tag in self.categories.keys() if
+                                  re.findall(r'^B-', tag)]))
+        categories = {transfer_tags[index]: index for index in range(0, len(transfer_tags))}
+        reverse_categories = {class_id: class_name for class_name, class_id in categories.items()}
+        return categories, reverse_categories
+
     def prepare_data(self, data):
         text_list = []
         entity_results_list = []
@@ -249,7 +259,7 @@ class DataManager:
                 label_vectors.append(label_vector)
             token_ids_list = torch.tensor(token_ids_list)
             label_vectors = torch.tensor(np.array(label_vectors))
-        elif self.configs['method'] == 'sequence_label':
+        elif self.configs['method'] == 'sequence_tag':
             for item in data:
                 text = item.get('text')
                 if 'ptm' in self.configs['model_type']:
@@ -258,7 +268,7 @@ class DataManager:
                 else:
                     token_ids = self.tokenizer_for_sentences(text)
                 token_ids = self.padding(token_ids)
-                labels = [self.categories[label] for label in self.get_sequence_label(item)]
+                labels = [self.categories_st[label] for label in self.get_sequence_label(item)]
                 label_vector = self.padding(labels, pad_token=False)
                 token_ids_list.append(token_ids)
                 label_vectors.append(label_vector)

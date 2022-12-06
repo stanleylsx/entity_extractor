@@ -61,7 +61,7 @@ class EffiGlobalPointer(nn.Module):
         return logits
 
     def forward(self, input_ids):
-        input_mask = torch.where(input_ids > 0, 1, 0).numpy()
+        input_mask = torch.where(input_ids > 0, 1, 0)
         context_outputs = self.encoder(input_ids, input_mask)
         last_hidden_state = context_outputs.last_hidden_state  # [2, 43, 768]
         seq_len = last_hidden_state.size()[1]
