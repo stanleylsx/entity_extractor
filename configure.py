@@ -44,7 +44,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'ptm_bilstm_crf',
+    'model_type': 'ptm_idcnn_crf',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -71,7 +71,7 @@ configure = {
     'attack_round': 3,
     # 使用Multisample Dropout
     # 使用Multisample Dropout后dropout会失效
-    'multisample_dropout': True,
+    'multisample_dropout': False,
     'dropout_round': 5,
     # 是否进行warmup
     'warmup': False,

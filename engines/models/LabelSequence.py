@@ -10,19 +10,17 @@ import torch
 from transformers import BertModel
 from torch import nn
 from configure import configure
+from torchcrf import CRF
 
 
 class IDCNN(nn.Module):
-    def __init__(self, embedding_dim, kernel_size=3, num_block=4):
+    def __init__(self, filter_nums, embedding_dim, kernel_size=3, num_block=4):
         super(IDCNN, self).__init__()
         self.layers = [
             {'dilation': 1},
             {'dilation': 1},
             {'dilation': 2}]
         net = nn.Sequential()
-        norms_1 = nn.ModuleList([LayerNorm(256) for _ in range(len(self.layers))])
-        norms_2 = nn.ModuleList([LayerNorm(256) for _ in range(num_block)])
-        filter_nums = configure['filter_nums']
         for i in range(len(self.layers)):
             dilation = self.layers[i]['dilation']
             single_block = nn.Conv1d(in_channels=filter_nums,
@@ -32,7 +30,6 @@ class IDCNN(nn.Module):
                                      padding=kernel_size // 2 + dilation - 1)
             net.add_module('layer%d' % i, single_block)
             net.add_module('relu', nn.ReLU())
-            net.add_module('layernorm', norms_1[i])
 
         self.linear = nn.Linear(embedding_dim, filter_nums)
         self.idcnn = nn.Sequential()
@@ -40,24 +37,12 @@ class IDCNN(nn.Module):
         for i in range(num_block):
             self.idcnn.add_module('block%i' % i, net)
             self.idcnn.add_module('relu', nn.ReLU())
-            self.idcnn.add_module('layernorm', norms_2[i])
 
     def forward(self, inputs):
+        inputs = self.linear(inputs)
+        inputs = inputs.permute(0, 2, 1)
         output = self.idcnn(inputs)
         return output
-
-
-class LayerNorm(nn.Module):
-    def __init__(self, features, eps=1e-6):
-        super(LayerNorm, self).__init__()
-        self.a_2 = nn.Parameter(torch.ones(features))
-        self.b_2 = nn.Parameter(torch.zeros(features))
-        self.eps = eps
-
-    def forward(self, x):
-        mean = x.mean(-1, keepdim=True)
-        std = x.std(-1, keepdim=True)
-        return self.a_2 * (x-mean) / (std + self.eps) + self.b_2
 
 
 class LabelSequence(nn.Module, ABC):
@@ -74,36 +59,45 @@ class LabelSequence(nn.Module, ABC):
         self.multisample_dropout = configure['multisample_dropout']
         if 'ptm' in configure['model_type']:
             self.ptm_model = BertModel.from_pretrained(configure['ptm'])
+            embedding_dim = self.ptm_model.config.hidden_size
         else:
             self.word_embeddings = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
 
         if 'bilstm' in configure['model_type']:
             self.bilstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
+            hidden_dim = 2 * hidden_dim
         elif 'idcnn' in configure['model_type']:
-            self.idcnn = IDCNN(embedding_dim)
+            filter_nums = configure['filter_nums']
+            self.idcnn = IDCNN(filter_nums, embedding_dim)
+            self.liner = nn.Linear(filter_nums, hidden_dim)
         self.dropout = nn.Dropout(dropout_rate)
         self.fc = nn.Linear(hidden_dim, num_labels)
+        self.crf = CRF(num_tags=num_labels, batch_first=True)
 
-    def forward(self, input_ids):
-        input_mask = torch.where(input_ids > 0, 1, 0)
+    def forward(self, input_ids, labels=None):
+        input_mask = torch.where(input_ids > 0, True, False)
         if 'ptm' in configure['model_type']:
             output = self.ptm_model(input_ids, attention_mask=input_mask)[0]
         else:
             output = self.word_embeddings(input_ids)
 
         if 'bilstm' in configure['model_type']:
-            output, _ = self.rnn(output)
+            output, _ = self.bilstm(output)
 
         elif 'idcnn' in configure['model_type']:
             output = self.idcnn(output).permute(0, 2, 1)
+            output = self.liner(output)
 
         if self.multisample_dropout and configure['dropout_round'] > 1:
             dropout_round = configure['dropout_round']
-            output = torch.mean(torch.stack([self.fc(
+            logits = torch.mean(torch.stack([self.fc(
                 self.dropout(output)) for _ in range(dropout_round)], dim=0), dim=0)
         else:
             dropout_output = self.dropout(output)
-            output = self.fc(dropout_output)
-        return output
-
-
+            logits = self.fc(dropout_output)
+        if labels is not None:
+            loss = -self.crf(emissions=logits, tags=labels, mask=input_mask)
+            return loss
+        else:
+            decode = self.crf.decode(emissions=logits, mask=input_mask)
+            return decode

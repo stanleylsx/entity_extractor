@@ -105,7 +105,7 @@ class Train:
                 dev_data = json.load(open(dev_file, encoding='utf-8'))
 
         elif self.data_manager.file_format == 'csv':
-            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
+            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)[:200]
             train_data = self.data_manager.csv_to_json(train_data)
             if dev_file != '':
                 dev_data = pd.read_csv(dev_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
@@ -179,11 +179,14 @@ class Train:
             for batch in tqdm(train_loader):
                 _, _, token_ids, label_vectors = batch
                 token_ids = token_ids.to(self.device)
+                attention_mask = torch.where(token_ids > 0, 1, 0).to(self.device)
                 label_vectors = label_vectors.to(self.device)
                 self.optimizer.zero_grad()
-                logits, _ = model(token_ids)
-                attention_mask = torch.where(token_ids > 0, 1, 0)
-                loss = self.calculate_loss(logits, label_vectors, attention_mask)
+                if self.configs['method'] == 'sequence_label':
+                    loss = model(token_ids, label_vectors)
+                else:
+                    logits, _ = model(token_ids)
+                    loss = self.calculate_loss(logits, label_vectors, attention_mask)
                 loss.backward()
                 loss_sum += loss.item()
                 if self.configs['use_gan']:
