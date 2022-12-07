@@ -77,9 +77,9 @@ class SequenceTag(nn.Module, ABC):
 
         self.crf = CRF(num_tags=num_labels, batch_first=True)
 
-    def forward(self, input_ids, mask, labels=None):
+    def forward(self, input_ids, labels=None):
+        attention_mask = torch.where(input_ids > 0, 1, 0)
         if 'ptm' in configure['model_type']:
-            attention_mask = torch.where(input_ids > 0, 1, 0)
             output = self.ptm_model(input_ids, attention_mask=attention_mask)[0]
         else:
             output = self.word_embeddings(input_ids)
@@ -99,8 +99,8 @@ class SequenceTag(nn.Module, ABC):
             dropout_output = self.dropout(output)
             logits = self.fc(dropout_output)
         if labels is not None:
-            loss = -self.crf(emissions=logits, tags=labels)
+            loss = -self.crf(emissions=logits, tags=labels, mask=attention_mask.bool())
             return loss
         else:
-            decode = self.crf.decode(emissions=logits)
+            decode = self.crf.decode(emissions=logits, mask=attention_mask.bool())
             return decode

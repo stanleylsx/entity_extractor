@@ -128,7 +128,7 @@ class Train:
         dev_loader = DataLoader(
             dataset=dev_data,
             batch_size=self.batch_size,
-            collate_fn=self.data_manager.prepare_data,
+            collate_fn=self.data_manager.prepare_data
         )
         return train_loader, dev_loader
 
@@ -177,14 +177,13 @@ class Train:
             start_time = time.time()
             step, loss, loss_sum = 0, 0.0, 0.0
             for batch in tqdm(train_loader):
-                _, _, token_ids, mask, label_vectors = batch
+                _, _, token_ids, label_vectors = batch
                 token_ids = token_ids.to(self.device)
-                mask = mask.to(self.device)
                 attention_mask = torch.where(token_ids > 0, 1, 0).to(self.device)
                 label_vectors = label_vectors.to(self.device)
                 self.optimizer.zero_grad()
                 if self.configs['method'] == 'sequence_tag':
-                    loss = model(token_ids, mask, label_vectors)
+                    loss = model(token_ids, label_vectors)
                 else:
                     logits, _ = model(token_ids)
                     loss = self.calculate_loss(logits, label_vectors, attention_mask)
@@ -261,11 +260,10 @@ class Train:
             model.eval()
             self.logger.info('start evaluate engines...')
             for batch in tqdm(dev_loader):
-                texts, entity_results, token_ids, mask, label_vectors = batch
+                texts, entity_results, token_ids, label_vectors = batch
                 token_ids = token_ids.to(self.device)
-                mask = mask.to(self.device)
                 if self.configs['method'] == 'sequence_tag':
-                    results = model(token_ids, mask)
+                    results = model(token_ids)
                 else:
                     logits, _ = model(token_ids)
                     results = logits.to('cpu')

@@ -259,7 +259,6 @@ class DataManager:
         text_list = []
         entity_results_list = []
         token_ids_list = []
-        sequence_mask_list = []
         label_vectors = []
         if self.configs['method'] == 'span':
             for item in data:
@@ -298,7 +297,6 @@ class DataManager:
                 token_ids_list.append(token_ids)
                 label_vectors.append(label_vector)
             token_ids_list = torch.tensor(token_ids_list)
-            sequence_mask_list = torch.tensor(sequence_mask_list).bool()
             label_vectors = torch.tensor(np.array(label_vectors))
         elif self.configs['method'] == 'sequence_tag':
             for item in data:
@@ -307,12 +305,9 @@ class DataManager:
                 entity_results = {}
                 if 'ptm' in self.configs['model_type']:
                     token_results = self.tokenizer(text)
-                    sequence_mask = [1] * (len(text) + 2)
                     token_ids = token_results.get('input_ids')
                 else:
                     token_ids = self.tokenizer_for_sentences(text)
-                    sequence_mask = [1] * len(text)
-                sequence_mask = self.padding(sequence_mask, pad_token=False)
                 token_ids = self.padding(token_ids)
                 labels = [self.categories[label] for label in self.get_sequence_label(item)]
                 if item['entities']:
@@ -323,13 +318,11 @@ class DataManager:
                 label_vector = self.padding(labels, pad_token=False)
                 token_ids_list.append(token_ids)
                 entity_results_list.append(entity_results)
-                sequence_mask_list.append(sequence_mask)
                 label_vectors.append(label_vector)
                 text_list.append(text)
             token_ids_list = torch.tensor(token_ids_list)
-            sequence_mask_list = torch.tensor(sequence_mask_list).bool()
             label_vectors = torch.tensor(np.array(label_vectors))
-        return text_list, entity_results_list, token_ids_list, sequence_mask_list, label_vectors
+        return text_list, entity_results_list, token_ids_list, label_vectors
 
     def extract_entities(self, text, model_output):
         """
@@ -365,8 +358,6 @@ class DataManager:
                             entity_text = text[start_in_text: end_in_text + 1]
                             predict_results.setdefault(class_id, set()).add(entity_text)
         else:
-            if 'ptm' in self.configs['model_type']:
-                model_output = model_output[1:-1]
             predict_label = [str(self.reverse_categories[lab]) for lab in model_output]
             predict_results = self.get_predict_entities(text, predict_label)
         return predict_results
