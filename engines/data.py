@@ -200,11 +200,12 @@ class DataManager:
                     entity_type = re.split(r'^B-', predict_labels[start_idx])[-1]
                     entity = sentence[start_idx]
                     end_idx = start_idx + 1
-                    while re.findall(r'^I-' + entity_type, predict_labels[end_idx]):
-                        entity += sentence[end_idx]
-                        end_idx += 1
-                        if end_idx == len(sentence):
-                            break
+                    if end_idx != len(predict_labels):
+                        while re.findall(r'^I-' + entity_type, predict_labels[end_idx]):
+                            entity += sentence[end_idx]
+                            end_idx += 1
+                            if end_idx == len(sentence):
+                                break
                     entity_results.setdefault(self.span_categories[entity_type], set()).add(entity)
             end_idx += 1
             start_idx += 1
