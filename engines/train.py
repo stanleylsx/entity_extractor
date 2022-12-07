@@ -105,7 +105,7 @@ class Train:
                 dev_data = json.load(open(dev_file, encoding='utf-8'))
 
         elif self.data_manager.file_format == 'csv':
-            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)[:2000]
+            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
             train_data = self.data_manager.csv_to_json(train_data)
             if dev_file != '':
                 dev_data = pd.read_csv(dev_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
