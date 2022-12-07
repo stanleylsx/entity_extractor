@@ -42,8 +42,29 @@ class DataManager:
             else:
                 tags = self.classes
             self.categories = {tags[index]: index for index in range(0, len(tags))}
+            self.span_categories = self.categories
+            self.span_reverse_categories = {class_id: class_name for class_name, class_id in
+                                            self.span_categories.items()}
         elif configs['method'] == 'sequence_tag':
-            self.categories = {self.classes[index]: index + 1 for index in range(0, len(self.classes))}
+            if self.file_format == 'csv':
+                self.categories = {self.classes[index]: index + 1 for index in range(0, len(self.classes))}
+                self.categories[self.PADDING] = 0
+                self.span_tags = list(set([re.split(r'^B-', tag)[-1] for tag in
+                                           self.classes if re.findall(r'^B-', tag)]))
+                self.span_categories = {self.span_tags[index]: index for index in range(0, len(self.span_tags))}
+                self.span_reverse_categories = {class_id: class_name for class_name, class_id in
+                                                self.span_categories.items()}
+            else:
+                self.span_categories = self.classes
+                self.span_reverse_categories = {class_id: class_name for class_name, class_id in
+                                                self.span_categories.items()}
+                tags = []
+                for tag in self.classes:
+                    tags.append('B-' + tag)
+                    tags.append('I-' + tag)
+                tags.append('O')
+                self.categories = {tags[index]: index + 1 for index in range(0, len(tags))}
+                self.categories[self.PADDING] = 0
         self.reverse_categories = {class_id: class_name for class_name, class_id in self.categories.items()}
         self.num_labels = len(self.reverse_categories)
 
@@ -152,11 +173,11 @@ class DataManager:
                         while start_idx <= len(sentence) - 1:
                             if each_label[start_idx] in self.classes:
                                 if re.findall(r'^B-', each_label[start_idx]):
-                                    entity_dict = {'start_idx': start_idx,
-                                                   'type': re.split(r'^B-', each_label[start_idx])[-1]}
+                                    entity_type = re.split(r'^B-', each_label[start_idx])[-1]
+                                    entity_dict = {'start_idx': start_idx, 'type': entity_type}
                                     entity = sentence[start_idx]
                                     end_idx = start_idx + 1
-                                    while re.findall(r'^I-', each_label[end_idx]):
+                                    while re.findall(r'^I-' + entity_type, each_label[end_idx]):
                                         entity += sentence[end_idx]
                                         end_idx += 1
                                         if end_idx == len(sentence):
@@ -185,6 +206,27 @@ class DataManager:
         for item in data_list:
             data.extend(item)
         return data
+
+    def get_predict_entities(self, sentence, predict_labels):
+        sentence = list(sentence)
+        entity_results = {}
+        start_idx = 0
+        end_idx = 0
+        while start_idx <= len(predict_labels) - 1:
+            if predict_labels[start_idx] in self.classes:
+                if re.findall(r'^B-', predict_labels[start_idx]):
+                    entity_type = re.split(r'^B-', predict_labels[start_idx])[-1]
+                    entity = sentence[start_idx]
+                    end_idx = start_idx + 1
+                    while re.findall(r'^I-' + entity_type, predict_labels[end_idx]):
+                        entity += sentence[end_idx]
+                        end_idx += 1
+                        if end_idx == len(sentence):
+                            break
+                    entity_results.setdefault(self.span_categories[entity_type], set()).add(entity)
+            end_idx += 1
+            start_idx += 1
+        return entity_results
 
     @staticmethod
     def get_sequence_label(item_dict):
@@ -217,6 +259,7 @@ class DataManager:
         text_list = []
         entity_results_list = []
         token_ids_list = []
+        sequence_mask_list = []
         label_vectors = []
         if self.configs['method'] == 'span':
             for item in data:
@@ -255,54 +298,75 @@ class DataManager:
                 token_ids_list.append(token_ids)
                 label_vectors.append(label_vector)
             token_ids_list = torch.tensor(token_ids_list)
+            sequence_mask_list = torch.tensor(sequence_mask_list).bool()
             label_vectors = torch.tensor(np.array(label_vectors))
         elif self.configs['method'] == 'sequence_tag':
             for item in data:
                 text = item.get('text')
+                s = list(text)
+                entity_results = {}
                 if 'ptm' in self.configs['model_type']:
                     token_results = self.tokenizer(text)
+                    sequence_mask = [1] * (len(text) + 2)
                     token_ids = token_results.get('input_ids')
                 else:
                     token_ids = self.tokenizer_for_sentences(text)
+                    sequence_mask = [1] * len(text)
+                sequence_mask = self.padding(sequence_mask, pad_token=False)
                 token_ids = self.padding(token_ids)
                 labels = [self.categories[label] for label in self.get_sequence_label(item)]
+                if item['entities']:
+                    for entity in item['entities']:
+                        if entity['type'] in self.span_categories:
+                            class_id = self.span_categories[entity['type']]
+                            entity_results.setdefault(class_id, set()).add(entity['entity'])
                 label_vector = self.padding(labels, pad_token=False)
                 token_ids_list.append(token_ids)
+                entity_results_list.append(entity_results)
+                sequence_mask_list.append(sequence_mask)
                 label_vectors.append(label_vector)
+                text_list.append(text)
             token_ids_list = torch.tensor(token_ids_list)
+            sequence_mask_list = torch.tensor(sequence_mask_list).bool()
             label_vectors = torch.tensor(np.array(label_vectors))
-        return text_list, entity_results_list, token_ids_list, label_vectors
+        return text_list, entity_results_list, token_ids_list, sequence_mask_list, label_vectors
 
-    def extract_entities_from_span(self, text, model_output):
+    def extract_entities(self, text, model_output):
         """
         从验证集中预测到相关实体
         """
         predict_results = {}
-        token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
-                                                 max_length=self.max_sequence_length,
-                                                 truncation=True)['offset_mapping']
-        start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-        end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-        if self.configs['model_type'] == 'ptm_bp':
-            model_output = torch.sigmoid(model_output)
-            decision_threshold = float(self.configs['decision_threshold'])
-            start = np.where(model_output[:, :, 0] > decision_threshold)
-            end = np.where(model_output[:, :, 1] > decision_threshold)
-            for _start, predicate1 in zip(*start):
-                for _end, predicate2 in zip(*end):
-                    if _start <= _end and predicate1 == predicate2:
-                        if _start in start_mapping and _end in end_mapping:
-                            start_in_text = start_mapping[_start]
-                            end_in_text = end_mapping[_end]
+        if self.configs['method'] == 'span':
+            token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
+                                                     max_length=self.max_sequence_length,
+                                                     truncation=True)['offset_mapping']
+            start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+            end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+            if self.configs['model_type'] == 'ptm_bp':
+                model_output = torch.sigmoid(model_output)
+                decision_threshold = float(self.configs['decision_threshold'])
+                start = np.where(model_output[:, :, 0] > decision_threshold)
+                end = np.where(model_output[:, :, 1] > decision_threshold)
+                for _start, predicate1 in zip(*start):
+                    for _end, predicate2 in zip(*end):
+                        if _start <= _end and predicate1 == predicate2:
+                            if _start in start_mapping and _end in end_mapping:
+                                start_in_text = start_mapping[_start]
+                                end_in_text = end_mapping[_end]
+                                entity_text = text[start_in_text: end_in_text + 1]
+                                predict_results.setdefault(predicate1, set()).add(entity_text)
+                            break
+            else:
+                for class_id, start, end in zip(*np.where(model_output > 0)):
+                    if start <= end:
+                        if start in start_mapping and end in end_mapping:
+                            start_in_text = start_mapping[start]
+                            end_in_text = end_mapping[end]
                             entity_text = text[start_in_text: end_in_text + 1]
-                            predict_results.setdefault(predicate1, set()).add(entity_text)
-                        break
+                            predict_results.setdefault(class_id, set()).add(entity_text)
         else:
-            for class_id, start, end in zip(*np.where(model_output > 0)):
-                if start <= end:
-                    if start in start_mapping and end in end_mapping:
-                        start_in_text = start_mapping[start]
-                        end_in_text = end_mapping[end]
-                        entity_text = text[start_in_text: end_in_text + 1]
-                        predict_results.setdefault(class_id, set()).add(entity_text)
+            if 'ptm' in self.configs['model_type']:
+                model_output = model_output[1:-1]
+            predict_label = [str(self.reverse_categories[lab]) for lab in model_output]
+            predict_results = self.get_predict_entities(text, predict_label)
         return predict_results

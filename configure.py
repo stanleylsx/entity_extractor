@@ -44,7 +44,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'ptm_bilstm_crf',
+    'model_type': 'ptm_crf',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -81,11 +81,11 @@ configure = {
     # warmup步数，-1自动推断为总步数的0.1
     'num_warmup_steps': -1,
     # 句子最大长度
-    'max_sequence_length': 200,
+    'max_sequence_length': 300,
     # epoch
     'epoch': 50,
     # batch_size
-    'batch_size': 16,
+    'batch_size': 18,
     # dropout rate
     'dropout_rate': 0.5,
     # 每print_per_batch打印损失函数

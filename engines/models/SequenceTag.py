@@ -60,25 +60,27 @@ class SequenceTag(nn.Module, ABC):
         if 'ptm' in configure['model_type']:
             self.ptm_model = BertModel.from_pretrained(configure['ptm'])
             embedding_dim = self.ptm_model.config.hidden_size
+            self.fc = nn.Linear(embedding_dim, num_labels)
         else:
             self.word_embeddings = nn.Embedding(vocab_size, embedding_dim, padding_idx=0)
 
         if 'bilstm' in configure['model_type']:
             self.bilstm = nn.LSTM(embedding_dim, hidden_dim, bidirectional=True, batch_first=True)
-            hidden_dim = 2 * hidden_dim
+            self.fc = nn.Linear(2 * hidden_dim, num_labels)
         elif 'idcnn' in configure['model_type']:
             filter_nums = configure['filter_nums']
             self.idcnn = IDCNN(filter_nums, embedding_dim)
             self.liner = nn.Linear(filter_nums, hidden_dim)
+            self.fc = nn.Linear(hidden_dim, num_labels)
 
         self.dropout = nn.Dropout(dropout_rate)
-        self.fc = nn.Linear(hidden_dim, num_labels)
+
         self.crf = CRF(num_tags=num_labels, batch_first=True)
 
-    def forward(self, input_ids, labels=None):
-        input_mask = torch.where(input_ids > 0, True, False)
+    def forward(self, input_ids, mask, labels=None):
         if 'ptm' in configure['model_type']:
-            output = self.ptm_model(input_ids, attention_mask=input_mask)[0]
+            attention_mask = torch.where(input_ids > 0, 1, 0)
+            output = self.ptm_model(input_ids, attention_mask=attention_mask)[0]
         else:
             output = self.word_embeddings(input_ids)
 
@@ -97,8 +99,8 @@ class SequenceTag(nn.Module, ABC):
             dropout_output = self.dropout(output)
             logits = self.fc(dropout_output)
         if labels is not None:
-            loss = -self.crf(emissions=logits, tags=labels, mask=input_mask)
+            loss = -self.crf(emissions=logits, tags=labels)
             return loss
         else:
-            decode = self.crf.decode(emissions=logits, mask=input_mask)
+            decode = self.crf.decode(emissions=logits)
             return decode
