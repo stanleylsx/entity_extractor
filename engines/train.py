@@ -19,7 +19,6 @@ class Train:
         self.logger = logger
         self.data_manager = data_manager
         self.batch_size = self.configs['batch_size']
-        self.num_labels = data_manager.num_labels
         self.checkpoints_dir = configs['checkpoints_dir']
         self.model_name = configs['model_name']
         self.epoch = configs['epoch']
@@ -38,9 +37,9 @@ class Train:
         batch_size = logits.size(0)
         if self.configs['use_multilabel_categorical_cross_entropy']:
             if self.configs['model_type'] == 'ptm_bp':
-                num_labels = self.num_labels * 2
+                num_labels = self.data_manager.span_num_labels * 2
             else:
-                num_labels = self.num_labels
+                num_labels = self.data_manager.span_num_labels
             model_output = logits.reshape(batch_size * num_labels, -1)
             label_vectors = labels.reshape(batch_size * num_labels, -1)
             loss = self.loss_function(model_output, label_vectors)
@@ -50,21 +49,22 @@ class Train:
                 loss = torch.sum(torch.mean(loss, 3), 2)
                 loss = torch.sum(loss * attention_mask) / torch.sum(attention_mask)
             else:
-                model_output = logits.reshape(batch_size * self.num_labels, -1)
-                label_vectors = labels.reshape(batch_size * self.num_labels, -1)
+                model_output = logits.reshape(batch_size * self.data_manager.span_num_labels, -1)
+                label_vectors = labels.reshape(batch_size * self.data_manager.span_num_labels, -1)
                 loss = self.loss_function(model_output, label_vectors).mean()
         return loss
 
     def init_model(self):
         if self.configs['model_type'].lower() == 'ptm_bp':
             from engines.models.BinaryPointer import BinaryPointer
-            model = BinaryPointer(num_labels=self.num_labels).to(self.device)
+            model = BinaryPointer(num_labels=self.data_manager.span_num_labels).to(self.device)
         elif self.configs['model_type'].lower() == 'ptm_gp':
             from engines.models.GlobalPointer import EffiGlobalPointer
-            model = EffiGlobalPointer(num_labels=self.num_labels, device=self.device).to(self.device)
+            model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels, device=self.device).to(self.device)
         else:
             from engines.models.SequenceTag import SequenceTag
-            model = SequenceTag(vocab_size=self.data_manager.vocab_size, num_labels=self.num_labels).to(self.device)
+            model = SequenceTag(vocab_size=self.data_manager.vocab_size,
+                                num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
 
         if self.configs['use_gan']:
             if self.configs['gan_method'].lower() == 'fgm':
@@ -105,7 +105,7 @@ class Train:
                 dev_data = json.load(open(dev_file, encoding='utf-8'))
 
         elif self.data_manager.file_format == 'csv':
-            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)
+            train_data = pd.read_csv(train_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)[:2000]
             train_data = self.data_manager.csv_to_json(train_data)
             if dev_file != '':
                 dev_data = pd.read_csv(dev_file, names=['token', 'label'], sep=' ', skip_blank_lines=False)

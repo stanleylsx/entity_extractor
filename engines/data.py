@@ -35,38 +35,20 @@ class DataManager:
             self.tokenizer = BertTokenizerFast.from_pretrained(configs['ptm'])
             self.vocab_size = len(self.tokenizer)
 
-        self.classes = configs['classes']
-        if configs['method'] == 'span':
-            if self.file_format == 'csv':
-                tags = list(set([re.split(r'^B-', tag)[-1] for tag in self.classes if re.findall(r'^B-', tag)]))
-            else:
-                tags = self.classes
-            self.categories = {tags[index]: index for index in range(0, len(tags))}
-            self.span_categories = self.categories
-            self.span_reverse_categories = {class_id: class_name for class_name, class_id in
-                                            self.span_categories.items()}
-        elif configs['method'] == 'sequence_tag':
-            if self.file_format == 'csv':
-                self.categories = {self.classes[index]: index + 1 for index in range(0, len(self.classes))}
-                self.categories[self.PADDING] = 0
-                self.span_tags = list(set([re.split(r'^B-', tag)[-1] for tag in
-                                           self.classes if re.findall(r'^B-', tag)]))
-                self.span_categories = {self.span_tags[index]: index for index in range(0, len(self.span_tags))}
-                self.span_reverse_categories = {class_id: class_name for class_name, class_id in
-                                                self.span_categories.items()}
-            else:
-                self.span_categories = self.classes
-                self.span_reverse_categories = {class_id: class_name for class_name, class_id in
-                                                self.span_categories.items()}
-                tags = []
-                for tag in self.classes:
-                    tags.append('B-' + tag)
-                    tags.append('I-' + tag)
-                tags.append('O')
-                self.categories = {tags[index]: index + 1 for index in range(0, len(tags))}
-                self.categories[self.PADDING] = 0
-        self.reverse_categories = {class_id: class_name for class_name, class_id in self.categories.items()}
-        self.num_labels = len(self.reverse_categories)
+        # csv格式的标签是BIO标签
+        # json格式的标签是类别标签
+        self.span_classes = configs['span_classes']
+        self.span_categories = {self.span_classes[index]: index for index in range(0, len(self.span_classes))}
+        self.span_reverse_categories = {class_id: class_name for class_name, class_id in self.span_categories.items()}
+        self.span_num_labels = len(self.span_reverse_categories)
+
+        self.sequence_tag_classes = configs['sequence_tag_classes']
+        self.sequence_tag_categories = {self.sequence_tag_classes[index]: index + 1 for index
+                                        in range(0, len(self.sequence_tag_classes))}
+        self.sequence_tag_categories[self.PADDING] = 0
+        self.sequence_tag_reverse_categories = {class_id: class_name for class_name, class_id
+                                                in self.sequence_tag_categories.items()}
+        self.sequence_tag_num_labels = len(self.sequence_tag_reverse_categories)
 
     def padding(self, token, pad_token=True):
         if len(token) < self.max_sequence_length:
@@ -171,7 +153,7 @@ class DataManager:
                         start_idx = 0
                         end_idx = 0
                         while start_idx <= len(sentence) - 1:
-                            if each_label[start_idx] in self.classes:
+                            if each_label[start_idx] in self.sequence_tag_classes:
                                 if re.findall(r'^B-', each_label[start_idx]):
                                     entity_type = re.split(r'^B-', each_label[start_idx])[-1]
                                     entity_dict = {'start_idx': start_idx, 'type': entity_type}
@@ -213,7 +195,7 @@ class DataManager:
         start_idx = 0
         end_idx = 0
         while start_idx <= len(predict_labels) - 1:
-            if predict_labels[start_idx] in self.classes:
+            if predict_labels[start_idx] in self.sequence_tag_classes:
                 if re.findall(r'^B-', predict_labels[start_idx]):
                     entity_type = re.split(r'^B-', predict_labels[start_idx])[-1]
                     entity = sentence[start_idx]
@@ -268,9 +250,9 @@ class DataManager:
                 token_ids = self.padding(token_results.get('input_ids'))
 
                 if self.configs['model_type'] == 'ptm_bp':
-                    label_vector = np.zeros((len(token_ids), len(self.categories), 2))
+                    label_vector = np.zeros((len(token_ids), len(self.span_categories), 2))
                 else:
-                    label_vector = np.zeros((self.num_labels, len(token_ids), len(token_ids)))
+                    label_vector = np.zeros((self.span_num_labels, len(token_ids), len(token_ids)))
 
                 for entity in item.get('entities'):
                     start_idx = entity['start_idx']
@@ -282,7 +264,7 @@ class DataManager:
                     start_mapping = {j[0]: i for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
                     end_mapping = {j[-1] - 1: i for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
                     if start_idx in start_mapping and end_idx in end_mapping:
-                        class_id = self.categories[type_class]
+                        class_id = self.span_categories[type_class]
                         entity_results.setdefault(class_id, set()).add(entity['entity'])
                         start_in_tokens = start_mapping[start_idx]
                         end_in_tokens = end_mapping[end_idx]
@@ -309,7 +291,7 @@ class DataManager:
                 else:
                     token_ids = self.tokenizer_for_sentences(text)
                 token_ids = self.padding(token_ids)
-                labels = [self.categories[label] for label in self.get_sequence_label(item)]
+                labels = [self.sequence_tag_categories[label] for label in self.get_sequence_label(item)]
                 if item['entities']:
                     for entity in item['entities']:
                         if entity['type'] in self.span_categories:
@@ -358,6 +340,6 @@ class DataManager:
                             entity_text = text[start_in_text: end_in_text + 1]
                             predict_results.setdefault(class_id, set()).add(entity_text)
         else:
-            predict_label = [str(self.reverse_categories[lab]) for lab in model_output]
+            predict_label = [str(self.sequence_tag_reverse_categories[lab]) for lab in model_output]
             predict_results = self.get_predict_entities(text, predict_label)
         return predict_results

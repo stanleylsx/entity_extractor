@@ -33,7 +33,7 @@ configure = {
     # 使用的方法
     # sequence_tag:序列标注
     # span:方式
-    'method': 'sequence_tag',
+    'method': 'span',
     # 使用的模型
     # sequence label方式:
     # ptm crf: ptm_crf
@@ -44,7 +44,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'ptm_crf',
+    'model_type': 'ptm_gp',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -54,10 +54,10 @@ configure = {
     # 模型保存的文件夹
     'checkpoints_dir': 'checkpoints/example_datasets',
     # 模型名字
-    'model_name': 'best_model.pkl',
+    'model_name': 'best_model_gp.pkl',
     # 类别列表
-    # 'classes': ['ORG', 'ORG', 'LOC'],
-    'classes': ['B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-PER', 'I-PER', 'O'],
+    'span_classes': ['PER', 'ORG', 'LOC'],
+    'sequence_tag_classes': ['B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-PER', 'I-PER', 'O'],
     # decision_threshold
     'decision_threshold': 0.5,
     # 是否使用苏神的多标签分类的损失函数，默认使用BCELoss
