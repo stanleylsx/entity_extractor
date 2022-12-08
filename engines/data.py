@@ -159,11 +159,12 @@ class DataManager:
                                     entity_dict = {'start_idx': start_idx, 'type': entity_type}
                                     entity = sentence[start_idx]
                                     end_idx = start_idx + 1
-                                    while re.findall(r'^I-' + entity_type, each_label[end_idx]):
-                                        entity += sentence[end_idx]
-                                        end_idx += 1
-                                        if end_idx == len(sentence):
-                                            break
+                                    if end_idx != len(each_label):
+                                        while re.findall(r'^I-' + entity_type, each_label[end_idx]):
+                                            entity += sentence[end_idx]
+                                            end_idx += 1
+                                            if end_idx == len(sentence):
+                                                break
                                     entity_dict['end_idx'] = end_idx - 1
                                     entity_dict['entity'] = entity
                                     entities.append(entity_dict)
