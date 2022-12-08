@@ -33,7 +33,7 @@ configure = {
     # 使用的方法
     # sequence_tag:序列标注
     # span:方式
-    'method': 'span',
+    'method': 'sequence_tag',
     # 使用的模型
     # sequence label方式:
     # ptm crf: ptm_crf
@@ -44,7 +44,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'ptm_gp',
+    'model_type': 'idcnn_crf',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -54,7 +54,7 @@ configure = {
     # 模型保存的文件夹
     'checkpoints_dir': 'checkpoints/example_datasets',
     # 模型名字
-    'model_name': 'best_model_gp.pkl',
+    'model_name': 'best_model.pkl',
     # 类别列表
     'span_classes': ['PER', 'ORG', 'LOC'],
     'sequence_tag_classes': ['B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-PER', 'I-PER', 'O'],
@@ -85,13 +85,13 @@ configure = {
     # epoch
     'epoch': 50,
     # batch_size
-    'batch_size': 18,
+    'batch_size': 64,
     # dropout rate
     'dropout_rate': 0.5,
     # 每print_per_batch打印损失函数
     'print_per_batch': 100,
     # learning_rate
-    'learning_rate': 5e-5,
+    'learning_rate': 1e-3,
     # 优化器选择
     'optimizer': 'AdamW',
     # 训练是否提前结束微调
