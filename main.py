@@ -27,7 +27,7 @@ def fold_check(configures):
 if __name__ == '__main__':
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     fold_check(configure)
-    logger = get_logger(configure['checkpoints_dir'] + '/logs')
+    logger = get_logger(configure['checkpoints_dir'] + '/logs', mode)
 
     if use_cuda:
         if torch.cuda.is_available():
@@ -50,28 +50,36 @@ if __name__ == '__main__':
         from engines.train import Train
         logger.info('mode: train')
         Train(configure, data_manager, device, logger).train()
-    # elif mode == 'interactive_predict':
-    #     logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
-    #     logger.info('mode: predict_one')
-    #     from engines.predict import Predictor
-    #     predictor = Predictor(configure, data_manager, device, logger)
-    #     predictor.predict_one('warm up')
-    #     while True:
-    #         logger.info('please input a sentence (enter [exit] to exit.)')
-    #         sentence = input()
-    #         if sentence == 'exit':
-    #             break
-    #         result = predictor.predict_one(sentence)
-    #         print(result)
-    # elif mode == 'test':
-    #     from engines.predict import Predictor
-    #     logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
-    #     logger.info('mode: test')
-    #     predictor = Predictor(configure, data_manager, device, logger)
-    #     predictor.predict_test()
-    # elif mode == 'convert_onnx':
-    #     logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
-    #     logger.info('mode: convert_onnx')
-    #     from engines.predict import Predictor
-    #     predictor = Predictor(configure, data_manager, device, logger)
-    #     predictor.convert_onnx()
+    elif mode == 'interactive_predict':
+        logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
+        logger.info('mode: predict_one')
+        from engines.predict import Predictor
+        predictor = Predictor(configure, data_manager, device, logger)
+        predictor.predict_one('warm up')
+        while True:
+            logger.info('please input a sentence (enter [exit] to exit.)')
+            sentence = input()
+            if sentence == 'exit':
+                break
+            logger.info('input:{}'.format(str(sentence)))
+            result = predictor.predict_one(sentence)
+            logger.info('putput:{}'.format(str(result)))
+            print(result)
+    elif mode == 'test':
+        from engines.predict import Predictor
+        logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
+        logger.info('mode: test')
+        predictor = Predictor(configure, data_manager, device, logger)
+        predictor.predict_test()
+    elif mode == 'convert_onnx':
+        logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
+        logger.info('mode: convert_onnx')
+        from engines.predict import Predictor
+        predictor = Predictor(configure, data_manager, device, logger)
+        predictor.convert_onnx()
+    elif mode == 'show_model_info':
+        logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
+        logger.info('mode: show_model_info')
+        from engines.predict import Predictor
+        predictor = Predictor(configure, data_manager, device, logger)
+        predictor.show_model_info()

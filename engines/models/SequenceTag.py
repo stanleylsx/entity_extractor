@@ -102,5 +102,6 @@ class SequenceTag(nn.Module, ABC):
             loss = -self.crf(emissions=logits, tags=labels, mask=attention_mask.bool())
             return loss
         else:
-            decode = self.crf.decode(emissions=logits, mask=attention_mask.bool())
+            decode = self.crf.decode(emissions=logits)
+            decode = torch.Tensor(decode)
             return decode

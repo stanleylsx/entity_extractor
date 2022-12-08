@@ -9,8 +9,9 @@
 # interactive_predict:交互模式
 # test:跑测试集
 # convert2tf:将torch模型保存为tf框架的pb格式文件
-# [train, interactive_predict, test, convert_onnx]
-mode = 'train'
+# show_model_info:打印模型参数量
+# [train, interactive_predict, test, convert_onnx, show_model_info]
+mode = 'show_model_info'
 
 # 使用GPU设备
 use_cuda = True
@@ -19,15 +20,15 @@ cuda_device = -1
 
 configure = {
     # 训练数据集
-    'train_file': 'data/example_datasets/dev_data.csv',
+    'train_file': 'data/example_datasets4/dev_data.csv',
     # 验证数据集
     'dev_file': '',
     # 没有验证集时，从训练集抽取验证集比例
     'validation_rate': 0.15,
     # 测试数据集
-    'test_file': '',
+    'test_file': 'data/example_datasets4/dev_data.csv',
     # 存放词表的地方
-    'token_file': 'data/example_datasets/token2id.txt',
+    'token_file': 'data/example_datasets4/token2id.txt',
     # 使用的预训练模型
     'ptm': 'bert-base-chinese',
     # 使用的方法
@@ -44,7 +45,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'idcnn_crf',
+    'model_type': 'ptm_crf',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -52,9 +53,9 @@ configure = {
     # 选择idcnn时filter的个数
     'filter_nums': 64,
     # 模型保存的文件夹
-    'checkpoints_dir': 'checkpoints/example_datasets',
+    'checkpoints_dir': 'checkpoints/example_datasets4',
     # 模型名字
-    'model_name': 'best_model.pkl',
+    'model_name': 'bert_crf.pkl',
     # 类别列表
     'span_classes': ['PER', 'ORG', 'LOC'],
     'sequence_tag_classes': ['B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-PER', 'I-PER', 'O'],
@@ -85,13 +86,13 @@ configure = {
     # epoch
     'epoch': 50,
     # batch_size
-    'batch_size': 64,
+    'batch_size': 18,
     # dropout rate
     'dropout_rate': 0.5,
     # 每print_per_batch打印损失函数
     'print_per_batch': 100,
     # learning_rate
-    'learning_rate': 1e-3,
+    'learning_rate': 5e-5,
     # 优化器选择
     'optimizer': 'AdamW',
     # 训练是否提前结束微调

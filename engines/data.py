@@ -285,7 +285,6 @@ class DataManager:
         elif self.configs['method'] == 'sequence_tag':
             for item in data:
                 text = item.get('text')
-                s = list(text)
                 entity_results = {}
                 if 'ptm' in self.configs['model_type']:
                     token_results = self.tokenizer(text)
@@ -342,6 +341,23 @@ class DataManager:
                             entity_text = text[start_in_text: end_in_text + 1]
                             predict_results.setdefault(class_id, set()).add(entity_text)
         else:
-            predict_label = [str(self.sequence_tag_reverse_categories[lab]) for lab in model_output]
+            model_output = model_output.tolist()[:len(text)]
+            predict_label = [str(self.sequence_tag_reverse_categories[int(lab)]) for lab in model_output]
             predict_results = self.get_predict_entities(text, predict_label)
         return predict_results
+
+    def prepare_single_sentence(self, sentence):
+        """
+        把预测的句子转成token
+        :param sentence:
+        :return:
+        """
+        if 'ptm_' in self.configs['model_type']:
+            token_results = self.tokenizer(sentence)
+            token_results = self.padding(token_results.get('input_ids'))
+            token_ids = torch.unsqueeze(torch.LongTensor(token_results), 0)
+        else:
+            token_results = self.tokenizer_for_sentences(sentence)
+            token_results = self.padding(token_results)
+            token_ids = torch.unsqueeze(torch.LongTensor(token_results), 0)
+        return token_ids
