@@ -93,6 +93,6 @@ class Predictor:
         self.logger.info('convert torch to onnx successful...')
 
     def show_model_info(self):
-        from torchinfo import summary
-        info = summary(self.model)
+        import textpruner
+        info = textpruner.summary(self.model, max_level=3)
         self.logger.info(info)
