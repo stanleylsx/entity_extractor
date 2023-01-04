@@ -78,6 +78,8 @@ configure = {
     # 使用Multisample Dropout后dropout会失效
     'multisample_dropout': False,
     'dropout_round': 5,
+    # 随机种子
+    'seed': 3407,
     # 预训练模型是否前置加入Noisy
     'noisy_tune': False,
     'noise_lambda': 0.12,

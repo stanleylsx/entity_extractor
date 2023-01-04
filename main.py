@@ -6,6 +6,7 @@
 from engines.utils.logger import get_logger
 from configure import use_cuda, cuda_device, configure, mode
 from engines.data import DataManager
+from engines.utils.setup_seed import setup_seed
 import torch
 import os
 import json
@@ -26,6 +27,7 @@ def fold_check(configures):
 
 if __name__ == '__main__':
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+    setup_seed(configure['seed'])
     fold_check(configure)
     logger = get_logger(configure['checkpoints_dir'] + '/logs', mode)
 
