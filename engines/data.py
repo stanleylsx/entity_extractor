@@ -5,6 +5,8 @@
 # @Software: PyCharm
 from transformers import BertTokenizerFast
 from tqdm import tqdm
+from engines.utils.make_regex import make_regex
+from engines.utils.detokenizer import Detokenizer
 import torch
 import os
 import re
@@ -27,8 +29,9 @@ class DataManager:
         self.max_sequence_length = configs['max_sequence_length']
         self.UNKNOWN = '[UNK]'
         self.PADDING = '[PAD]'
+        self.detokenizer = Detokenizer()
 
-        if 'ptm_' not in configs['model_type']:
+        if 'ptm' not in configs['model_type']:
             self.token2id, self.id2token = self.load_vocab()
             self.vocab_size = len(self.token2id) + 1
         else:
@@ -43,9 +46,8 @@ class DataManager:
         self.span_num_labels = len(self.span_reverse_categories)
 
         self.sequence_tag_classes = configs['sequence_tag_classes']
-        self.sequence_tag_categories = {self.sequence_tag_classes[index]: index + 1 for index
+        self.sequence_tag_categories = {self.sequence_tag_classes[index]: index for index
                                         in range(0, len(self.sequence_tag_classes))}
-        self.sequence_tag_categories[self.PADDING] = 0
         self.sequence_tag_reverse_categories = {class_id: class_name for class_name, class_id
                                                 in self.sequence_tag_categories.items()}
         self.sequence_tag_num_labels = len(self.sequence_tag_reverse_categories)
@@ -132,7 +134,7 @@ class DataManager:
             else:
                 df_null = null[batch_nums * index:]
             df_part = df_null.iloc[[-1]].index.values[0] + 1
-            df_list.append(data[past_last_index:df_part - 1])
+            df_list.append(data[past_last_index:df_part])
             past_last_index = df_part
         return df_list
 
@@ -149,7 +151,6 @@ class DataManager:
                     entities = []
                     each_simple = {'text': ''}
                     if str(token) == str(np.nan):
-                        each_simple['text'] = ''.join(sentence)
                         start_idx = 0
                         end_idx = 0
                         while start_idx <= len(sentence) - 1:
@@ -161,16 +162,42 @@ class DataManager:
                                     end_idx = start_idx + 1
                                     if end_idx != len(each_label):
                                         while re.findall(r'^I-' + entity_type, each_label[end_idx]):
-                                            entity += sentence[end_idx]
+                                            if self.configs['token_level'] == 'word':
+                                                char_ = ' ' + sentence[end_idx]
+                                                entity += char_
+                                            else:
+                                                entity += sentence[end_idx]
                                             end_idx += 1
                                             if end_idx == len(sentence):
                                                 break
                                     entity_dict['end_idx'] = end_idx - 1
+                                    entity = entity.strip()
                                     entity_dict['entity'] = entity
                                     entities.append(entity_dict)
                             end_idx += 1
                             start_idx += 1
-                        each_simple['entities'] = entities
+                        if self.configs['token_level'] == 'word':
+                            word_entities = []
+                            text = self.detokenizer.tokenize(sentence)
+                            each_simple['text'] = text
+                            entities = list(set([entity['entity'] for entity in entities]))
+                            entities.sort(key=lambda i: len(i), reverse=True)
+                            start_set = []
+                            for entity in entities:
+                                entity_locs = re.finditer(make_regex(entity), text)
+                                for entity_loc in entity_locs:
+                                    start, end = entity_loc.span()
+                                    end = end - 1
+                                    if start in start_set:
+                                        continue
+                                    entity_dict = {'start_idx': start, 'end_idx': end, 'type': entity}
+                                    word_entities.append(entity_dict)
+                                    each_simple['entities'] = word_entities
+                                    start_set.append(start)
+
+                        else:
+                            each_simple['text'] = ''.join(sentence)
+                            each_simple['entities'] = entities
                         result.append(each_simple)
                         sentence = []
                         each_label = []
@@ -189,28 +216,6 @@ class DataManager:
         for item in data_list:
             data.extend(item)
         return data
-
-    def get_predict_entities(self, sentence, predict_labels):
-        sentence = list(sentence)
-        entity_results = {}
-        start_idx = 0
-        end_idx = 0
-        while start_idx <= len(predict_labels) - 1:
-            if predict_labels[start_idx] in self.sequence_tag_classes:
-                if re.findall(r'^B-', predict_labels[start_idx]):
-                    entity_type = re.split(r'^B-', predict_labels[start_idx])[-1]
-                    entity = sentence[start_idx]
-                    end_idx = start_idx + 1
-                    if end_idx != len(predict_labels):
-                        while re.findall(r'^I-' + entity_type, predict_labels[end_idx]):
-                            entity += sentence[end_idx]
-                            end_idx += 1
-                            if end_idx == len(sentence):
-                                break
-                    entity_results.setdefault(self.span_categories[entity_type], set()).add(entity)
-            end_idx += 1
-            start_idx += 1
-        return entity_results
 
     @staticmethod
     def get_sequence_label(item_dict):
@@ -312,12 +317,12 @@ class DataManager:
         从验证集中预测到相关实体
         """
         predict_results = {}
+        token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
+                                                 max_length=self.max_sequence_length,
+                                                 truncation=True)['offset_mapping']
+        start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+        end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
         if self.configs['method'] == 'span':
-            token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
-                                                     max_length=self.max_sequence_length,
-                                                     truncation=True)['offset_mapping']
-            start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-            end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
             if self.configs['model_type'] == 'ptm_bp':
                 model_output = torch.sigmoid(model_output)
                 decision_threshold = float(self.configs['decision_threshold'])
@@ -341,9 +346,30 @@ class DataManager:
                             entity_text = text[start_in_text: end_in_text + 1]
                             predict_results.setdefault(class_id, set()).add(entity_text)
         else:
-            model_output = model_output.tolist()[:len(text)]
+            model_output = model_output.tolist()
+            model_output = model_output[:len(token2char_span_mapping)]
             predict_label = [str(self.sequence_tag_reverse_categories[int(lab)]) for lab in model_output]
-            predict_results = self.get_predict_entities(text, predict_label)
+            start, end = 0, 0
+
+            while end < len(predict_label):
+                if predict_label[start] in self.sequence_tag_classes:
+                    if predict_label[start] == 'O':
+                        start = start + 1
+                        end = end + 1
+                        continue
+                    if re.findall(r'^B-', predict_label[start]):
+                        entity_type = re.split(r'^B-', predict_label[start])[-1]
+                        end = start + 1
+                        if end != len(predict_label):
+                            while re.findall(r'^I-' + entity_type, predict_label[end]):
+                                end = end + 1
+                        if start in start_mapping and end - 1 in end_mapping:
+                            entity = text[start_mapping[start]: end_mapping[end-1] + 1]
+                            predict_results.setdefault(self.span_categories[entity_type], set()).add(entity)
+                        start = end
+                        continue
+                start = start + 1
+                end = end + 1
         return predict_results
 
     def prepare_single_sentence(self, sentence):
@@ -352,12 +378,11 @@ class DataManager:
         :param sentence:
         :return:
         """
-        if 'ptm_' in self.configs['model_type']:
+        if 'ptm' in self.configs['model_type']:
             token_results = self.tokenizer(sentence)
-            token_results = self.padding(token_results.get('input_ids'))
+            token_results = token_results.get('input_ids')
             token_ids = torch.unsqueeze(torch.LongTensor(token_results), 0)
         else:
             token_results = self.tokenizer_for_sentences(sentence)
-            token_results = self.padding(token_results)
             token_ids = torch.unsqueeze(torch.LongTensor(token_results), 0)
         return token_ids

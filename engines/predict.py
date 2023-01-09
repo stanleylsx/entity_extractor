@@ -22,15 +22,23 @@ class Predictor:
         if self.configs['model_type'].lower() == 'ptm_bp':
             from engines.models.BinaryPointer import BinaryPointer
             self.model = BinaryPointer(num_labels=self.data_manager.span_num_labels).to(self.device)
+            self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
         elif self.configs['model_type'].lower() == 'ptm_gp':
             from engines.models.GlobalPointer import EffiGlobalPointer
             self.model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels,
                                            device=self.device).to(self.device)
+            self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
+        elif self.configs['model_type'].lower() == 'ptm':
+            from engines.models.TokenClassification import TokenClassification
+            self.model = TokenClassification(num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
+            model_path = os.path.join(self.checkpoints_dir, self.model_name)
+            if os.path.exists(model_path):
+                self.model.load_state_dict(torch.load(model_path))
         else:
-            from engines.models.SequenceTag import SequenceTag
-            self.model = SequenceTag(vocab_size=self.data_manager.vocab_size,
+            from engines.models.SequenceTagCRF import SequenceTagCRF
+            self.model = SequenceTagCRF(vocab_size=self.data_manager.vocab_size,
                                 num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
-        self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
+            self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
         self.model.eval()
 
     def predict_one(self, sentence):
@@ -40,7 +48,11 @@ class Predictor:
         start_time = time.time()
         token_ids = self.data_manager.prepare_single_sentence(sentence).to(self.device)
         if self.configs['method'] == 'sequence_tag':
-            results = torch.squeeze(self.model(token_ids))
+            if self.configs['model_type'].lower() == 'ptm':
+                _, results = self.model(token_ids)
+                results = torch.squeeze(results)
+            else:
+                results = torch.squeeze(self.model(token_ids))
         else:
             logits, _ = self.model(token_ids)
             results = torch.squeeze(logits.to('cpu'))
@@ -73,7 +85,8 @@ class Predictor:
         )
         from engines.train import Train
         train = Train(self.configs, self.data_manager, self.device, self.logger)
-        train.validate(self.model, test_loader)
+        f1 = train.validate(self.model, test_loader)
+        self.logger.info('overall f1:{}'.format(f1))
 
     def convert_onnx(self):
         max_sequence_length = self.data_manager.max_sequence_length
@@ -93,6 +106,6 @@ class Predictor:
         self.logger.info('convert torch to onnx successful...')
 
     def show_model_info(self):
-        import textpruner
-        info = textpruner.summary(self.model, max_level=3)
+        from engines.textpruner import summary
+        info = summary(self.model, max_level=3)
         self.logger.info(info)

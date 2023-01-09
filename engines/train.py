@@ -28,31 +28,38 @@ class Train:
         self.optimizer = None
         self.gan = None
 
-        if configs['use_multilabel_categorical_cross_entropy']:
-            from engines.utils.losses import MultilabelCategoricalCrossEntropy
-            self.loss_function = MultilabelCategoricalCrossEntropy()
+        if self.configs['method'] == 'span':
+            if configs['use_multilabel_categorical_cross_entropy']:
+                from engines.utils.losses import MultilabelCategoricalCrossEntropy
+                self.loss_function = MultilabelCategoricalCrossEntropy()
+            else:
+                self.loss_function = torch.nn.BCEWithLogitsLoss(reduction='none')
         else:
-            self.loss_function = torch.nn.BCEWithLogitsLoss(reduction='none')
+            self.loss_function = torch.nn.CrossEntropyLoss()
 
     def calculate_loss(self, logits, labels, attention_mask):
         batch_size = logits.size(0)
-        if self.configs['use_multilabel_categorical_cross_entropy']:
-            if self.configs['model_type'] == 'ptm_bp':
-                num_labels = self.data_manager.span_num_labels * 2
+        if self.configs['method'] == 'span':
+            if self.configs['use_multilabel_categorical_cross_entropy']:
+                if self.configs['model_type'] == 'ptm_bp':
+                    num_labels = self.data_manager.span_num_labels * 2
+                else:
+                    num_labels = self.data_manager.span_num_labels
+                model_output = logits.reshape(batch_size * num_labels, -1)
+                label_vectors = labels.reshape(batch_size * num_labels, -1)
+                loss = self.loss_function(model_output, label_vectors)
             else:
-                num_labels = self.data_manager.span_num_labels
-            model_output = logits.reshape(batch_size * num_labels, -1)
-            label_vectors = labels.reshape(batch_size * num_labels, -1)
-            loss = self.loss_function(model_output, label_vectors)
+                if self.configs['model_type'] == 'ptm_bp':
+                    loss = self.loss_function(logits, labels)
+                    loss = torch.sum(torch.mean(loss, 3), 2)
+                    loss = torch.sum(loss * attention_mask) / torch.sum(attention_mask)
+                else:
+                    model_output = logits.reshape(batch_size * self.data_manager.span_num_labels, -1)
+                    label_vectors = labels.reshape(batch_size * self.data_manager.span_num_labels, -1)
+                    loss = self.loss_function(model_output, label_vectors).mean()
         else:
-            if self.configs['model_type'] == 'ptm_bp':
-                loss = self.loss_function(logits, labels)
-                loss = torch.sum(torch.mean(loss, 3), 2)
-                loss = torch.sum(loss * attention_mask) / torch.sum(attention_mask)
-            else:
-                model_output = logits.reshape(batch_size * self.data_manager.span_num_labels, -1)
-                label_vectors = labels.reshape(batch_size * self.data_manager.span_num_labels, -1)
-                loss = self.loss_function(model_output, label_vectors).mean()
+            logits = logits.permute(0, 2, 1)
+            loss = self.loss_function(logits, labels)
         return loss
 
     def init_model(self):
@@ -62,9 +69,12 @@ class Train:
         elif self.configs['model_type'].lower() == 'ptm_gp':
             from engines.models.GlobalPointer import EffiGlobalPointer
             model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels, device=self.device).to(self.device)
+        elif self.configs['model_type'].lower() == 'ptm':
+            from engines.models.TokenClassification import TokenClassification
+            model = TokenClassification(num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
         else:
-            from engines.models.SequenceTag import SequenceTag
-            model = SequenceTag(vocab_size=self.data_manager.vocab_size,
+            from engines.models.SequenceTagCRF import SequenceTagCRF
+            model = SequenceTagCRF(vocab_size=self.data_manager.vocab_size,
                                 num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
 
         if 'ptm' in self.configs['model_type'] and self.configs['noisy_tune']:
@@ -152,7 +162,12 @@ class Train:
 
     def input_model(self, model, token_ids, labels):
         if self.configs['method'] == 'sequence_tag':
-            loss = model(token_ids, labels)
+            if 'crf' in self.configs['model_type']:
+                loss = model(token_ids, labels)
+            else:
+                logits, _ = model(token_ids)
+                attention_mask = torch.where(token_ids > 0, 1, 0).to(self.device)
+                loss = self.calculate_loss(logits, labels, attention_mask)
         else:
             logits, _ = model(token_ids)
             attention_mask = torch.where(token_ids > 0, 1, 0).to(self.device)
@@ -363,7 +378,10 @@ class Train:
                 texts, entity_results, token_ids, label_vectors = batch
                 token_ids = token_ids.to(self.device)
                 if self.configs['method'] == 'sequence_tag':
-                    results = model(token_ids)
+                    if self.configs['model_type'].lower() == 'ptm':
+                        _, results = model(token_ids)
+                    else:
+                        results = model(token_ids)
                 else:
                     logits, _ = model(token_ids)
                     results = logits.to('cpu')

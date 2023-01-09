@@ -10,7 +10,7 @@
 # test:                 跑测试集
 # convert_onnx:         将torch模型保存onnx文件
 # show_model_info:      打印模型参数
-mode = 'show_model_info'
+mode = 'test'
 
 # 使用GPU设备
 use_cuda = True
@@ -19,7 +19,7 @@ cuda_device = -1
 
 configure = {
     # 训练数据集
-    'train_file': 'data/example_datasets4/dev_data.csv',
+    'train_file': 'data/example_datasets4/test_data.csv',
     # 验证数据集
     'dev_file': '',
     # 使用交叉验证
@@ -28,11 +28,15 @@ configure = {
     # 没有验证集时，从训练集抽取验证集比例
     'validation_rate': 0.15,
     # 测试数据集
-    'test_file': 'data/example_datasets4/dev_data.csv',
+    'test_file': 'data/example_datasets4/test_data.csv',
+    # 单词还是方块字
+    # 西方语法单词: word
+    # 中日韩等不需要空格的方块字: char
+    'token_level': 'word',
     # 存放词表的地方
     'token_file': 'data/example_datasets4/token2id.txt',
     # 使用的预训练模型
-    'ptm': 'bert-base-chinese',
+    'ptm': 'Davlan/bert-base-multilingual-cased-ner-hrl',
     # 使用的方法
     # sequence_tag:序列标注
     # span:方式
@@ -44,10 +48,11 @@ configure = {
     # ptm idcnn crf: ptm_idcnn_crf
     # idcnn crf: idcnn_crf
     # bilstm crf: bilstm_crf
+    # ptm: ptm
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'ptm_crf',
+    'model_type': 'ptm',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -60,10 +65,10 @@ configure = {
     'model_name': 'bert_crf.pkl',
     # 类别列表
     'span_classes': ['PER', 'ORG', 'LOC'],
-    'sequence_tag_classes': ['B-ORG', 'I-ORG', 'B-LOC', 'I-LOC', 'B-PER', 'I-PER', 'O'],
+    'sequence_tag_classes': ['O', 'B-DATE', 'I-DATE', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC'],
     # decision_threshold
     'decision_threshold': 0.5,
-    # 是否使用苏神的多标签分类的损失函数，默认使用BCELoss
+    # 使用bp和gp的时候是否使用苏神的多标签分类的损失函数，默认使用BCELoss
     'use_multilabel_categorical_cross_entropy': True,
     # 使用对抗学习
     'use_gan': False,

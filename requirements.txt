@@ -2,4 +2,3 @@ torch==1.9.0+cu102
 tqdm==4.48.2
 transformers==4.8.2
 pytorch-crf==0.7.2
-textpruner==1.1.post1

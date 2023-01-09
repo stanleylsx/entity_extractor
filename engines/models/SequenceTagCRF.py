@@ -2,7 +2,7 @@
 # @Time : 2022/12/2 6:14 下午
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
-# @File : SequenceTag.py
+# @File : SequenceTagCRF.py
 # @Software: PyCharm
 from abc import ABC
 
@@ -45,9 +45,9 @@ class IDCNN(nn.Module):
         return output
 
 
-class SequenceTag(nn.Module, ABC):
+class SequenceTagCRF(nn.Module, ABC):
     def __init__(self, vocab_size, num_labels):
-        super(SequenceTag, self).__init__()
+        super(SequenceTagCRF, self).__init__()
         # ptm crf: ptm_crf
         # ptm bilstm crf: ptm_bilstm_crf
         # ptm idcnn crf: ptm_idcnn_crf
