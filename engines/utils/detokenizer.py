@@ -12,6 +12,9 @@ class MacIntyreContractions:
     List of contractions adapted from Robert MacIntyre's tokenizer.
     """
 
+    def __init__(self):
+        super(MacIntyreContractions, self).__init__()
+
     CONTRACTIONS2 = [
         r"(?i)\b(can)(?#X)(not)\b",
         r"(?i)\b(d)(?#X)('ye)\b",
