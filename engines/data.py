@@ -347,11 +347,13 @@ class DataManager:
                             entity_text = text[start_in_text: end_in_text + 1]
                             predict_results.setdefault(class_id, set()).add(entity_text)
         else:
+            model_output = model_output.tolist()
             if self.configs['model_type'] == 'ptm':
                 start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping)}
                 end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping)}
-            model_output = model_output.tolist()
-            model_output = model_output[:len(token2char_span_mapping)]
+                model_output = model_output[:len(token2char_span_mapping)]
+            else:
+                model_output = model_output[:len(token2char_span_mapping)-2]
             predict_label = [str(self.sequence_tag_reverse_categories[int(lab)]) for lab in model_output]
             start, end = 0, 0
 
