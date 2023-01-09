@@ -363,6 +363,8 @@ class DataManager:
                         if end != len(predict_label):
                             while re.findall(r'^I-' + entity_type, predict_label[end]):
                                 end = end + 1
+                                if end == len(predict_label):
+                                    break
                         if start in start_mapping and end - 1 in end_mapping:
                             entity = text[start_mapping[start]: end_mapping[end-1] + 1]
                             predict_results.setdefault(self.span_categories[entity_type], set()).add(entity)
