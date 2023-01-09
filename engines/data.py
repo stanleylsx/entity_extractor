@@ -5,6 +5,7 @@
 # @Software: PyCharm
 from transformers import BertTokenizerFast
 from tqdm import tqdm
+from configure import mode
 from engines.utils.make_regex import make_regex
 from engines.utils.detokenizer import Detokenizer
 import torch
@@ -346,6 +347,9 @@ class DataManager:
                             entity_text = text[start_in_text: end_in_text + 1]
                             predict_results.setdefault(class_id, set()).add(entity_text)
         else:
+            if self.configs['model_type'] == 'ptm':
+                start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping)}
+                end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping)}
             model_output = model_output.tolist()
             model_output = model_output[:len(token2char_span_mapping)]
             predict_label = [str(self.sequence_tag_reverse_categories[int(lab)]) for lab in model_output]
@@ -365,8 +369,10 @@ class DataManager:
                                 end = end + 1
                                 if end == len(predict_label):
                                     break
-                        if start in start_mapping and end - 1 in end_mapping:
-                            entity = text[start_mapping[start]: end_mapping[end-1] + 1]
+                            if self.configs['model_type'] == 'ptm':
+                                entity = text[start_mapping[start]: end_mapping[end - 1] + 1]
+                            else:
+                                entity = text[start_mapping[start + 1]: end_mapping[end] + 1]
                             predict_results.setdefault(self.span_categories[entity_type], set()).add(entity)
                         start = end
                         continue
