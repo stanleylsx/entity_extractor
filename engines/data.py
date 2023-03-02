@@ -5,7 +5,6 @@
 # @Software: PyCharm
 from transformers import BertTokenizerFast
 from tqdm import tqdm
-from configure import mode
 from engines.utils.make_regex import make_regex
 from engines.utils.detokenizer import Detokenizer
 import torch
@@ -318,11 +317,16 @@ class DataManager:
         从验证集中预测到相关实体
         """
         predict_results = {}
-        token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
-                                                 max_length=self.max_sequence_length,
-                                                 truncation=True)['offset_mapping']
-        start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
-        end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+        if 'ptm' in self.configs['model_type']:
+            token2char_span_mapping = self.tokenizer(text, return_offsets_mapping=True,
+                                                     max_length=self.max_sequence_length,
+                                                     truncation=True)['offset_mapping']
+            start_mapping = {i: j[0] for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+            end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping) if j != (0, 0)}
+        else:
+            token2char_span_mapping = None
+            start_mapping = None
+            end_mapping = None
         if self.configs['method'] == 'span':
             if self.configs['model_type'] == 'ptm_bp':
                 model_output = torch.sigmoid(model_output)
@@ -353,7 +357,8 @@ class DataManager:
                 end_mapping = {i: j[-1] - 1 for i, j in enumerate(token2char_span_mapping)}
                 model_output = model_output[:len(token2char_span_mapping)]
             else:
-                model_output = model_output[:len(token2char_span_mapping)-2]
+                if 'ptm' in self.configs['model_type']:
+                    model_output = model_output[:len(token2char_span_mapping)-2]
             predict_label = [str(self.sequence_tag_reverse_categories[int(lab)]) for lab in model_output]
             start, end = 0, 0
 
@@ -374,7 +379,10 @@ class DataManager:
                             if self.configs['model_type'] == 'ptm':
                                 entity = text[start_mapping[start]: end_mapping[end - 1] + 1]
                             else:
-                                entity = text[start_mapping[start + 1]: end_mapping[end] + 1]
+                                if 'ptm' in self.configs['model_type']:
+                                    entity = text[start_mapping[start + 1]: end_mapping[end] + 1]
+                                else:
+                                    entity = text[start: end]
                             predict_results.setdefault(self.span_categories[entity_type], set()).add(entity)
                         start = end
                         continue
