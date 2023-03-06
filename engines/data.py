@@ -245,23 +245,25 @@ class DataManager:
         return tokens
 
     def prepare_data(self, data):
-        text_list = []
         entity_results_list = []
         token_ids_list = []
         label_vectors = []
+        text_list = [item.get('text') for item in data]
         if self.configs['method'] == 'span':
-            for item in data:
-                text = item.get('text')
+            token_results = self.tokenizer.batch_encode_plus(text_list, padding=True, return_tensors='pt')
+            token_ids_list = token_results.get('input_ids')
+            token_length = token_ids_list.size(1)
+            for item in zip(data, text_list):
+                data = item[0]
+                text = item[1]
                 entity_results = {}
-                token_results = self.tokenizer(text)
-                token_ids = self.padding(token_results.get('input_ids'))
 
                 if self.configs['model_type'] == 'ptm_bp':
-                    label_vector = np.zeros((len(token_ids), len(self.span_categories), 2))
+                    label_vector = np.zeros((token_length, len(self.span_categories), 2))
                 else:
-                    label_vector = np.zeros((self.span_num_labels, len(token_ids), len(token_ids)))
+                    label_vector = np.zeros((self.span_num_labels, token_length, token_length))
 
-                for entity in item.get('entities'):
+                for entity in data.get('entities'):
                     start_idx = entity['start_idx']
                     end_idx = entity['end_idx']
                     type_class = entity['type']
@@ -280,10 +282,7 @@ class DataManager:
                             label_vector[end_in_tokens, class_id, 1] = 1
                         else:
                             label_vector[class_id, start_in_tokens, end_in_tokens] = 1
-
-                text_list.append(text)
                 entity_results_list.append(entity_results)
-                token_ids_list.append(token_ids)
                 label_vectors.append(label_vector)
             token_ids_list = torch.tensor(token_ids_list)
             label_vectors = torch.tensor(np.array(label_vectors))
@@ -307,7 +306,6 @@ class DataManager:
                 token_ids_list.append(token_ids)
                 entity_results_list.append(entity_results)
                 label_vectors.append(label_vector)
-                text_list.append(text)
             token_ids_list = torch.tensor(token_ids_list)
             label_vectors = torch.tensor(np.array(label_vectors))
         return text_list, entity_results_list, token_ids_list, label_vectors
