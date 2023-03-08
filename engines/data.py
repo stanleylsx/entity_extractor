@@ -310,7 +310,7 @@ class DataManager:
             label_vectors = torch.tensor(np.array(label_vectors))
         return text_list, entity_results_list, token_ids_list, label_vectors
 
-    def extract_entities(self, text, model_output):
+    def extract_entities(self, text, model_output, inference=False):
         """
         从验证集中预测到相关实体
         """
@@ -338,7 +338,11 @@ class DataManager:
                                 start_in_text = start_mapping[_start]
                                 end_in_text = end_mapping[_end]
                                 entity_text = text[start_in_text: end_in_text + 1]
-                                predict_results.setdefault(predicate1, set()).add(entity_text)
+                                if inference:
+                                    predict_results.setdefault(predicate1, []).append(
+                                        {'entity': entity_text, 'entity_loc': [start_in_text, end_in_text]})
+                                else:
+                                    predict_results.setdefault(predicate1, set()).add(entity_text)
                             break
             else:
                 for class_id, start, end in zip(*np.where(model_output > 0)):
@@ -347,7 +351,11 @@ class DataManager:
                             start_in_text = start_mapping[start]
                             end_in_text = end_mapping[end]
                             entity_text = text[start_in_text: end_in_text + 1]
-                            predict_results.setdefault(class_id, set()).add(entity_text)
+                            if inference:
+                                predict_results.setdefault(class_id, []).append(
+                                    {'entity': entity_text, 'entity_loc': [start_in_text, end_in_text]})
+                            else:
+                                predict_results.setdefault(class_id, set()).add(entity_text)
         else:
             model_output = model_output.tolist()
             if self.configs['model_type'] == 'ptm':
@@ -376,12 +384,19 @@ class DataManager:
                                     break
                             if self.configs['model_type'] == 'ptm':
                                 entity = text[start_mapping[start]: end_mapping[end - 1] + 1]
+                                entity_loc = [start_mapping[start], end_mapping[end - 1]]
                             else:
                                 if 'ptm' in self.configs['model_type']:
                                     entity = text[start_mapping[start + 1]: end_mapping[end] + 1]
+                                    entity_loc = [start_mapping[start + 1], end_mapping[end]]
                                 else:
                                     entity = text[start: end]
-                            predict_results.setdefault(self.span_categories[entity_type], set()).add(entity)
+                                    entity_loc = [start, end-1]
+                            if inference:
+                                predict_results.setdefault(self.span_categories[entity_type], []).append(
+                                    {'entity': entity, 'entity_loc': entity_loc})
+                            else:
+                                predict_results.setdefault(self.span_categories[entity_type], set()).add(entity)
                         start = end
                         continue
                 start = start + 1

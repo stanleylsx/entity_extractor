@@ -56,7 +56,7 @@ class Predictor:
         else:
             logits, _ = self.model(token_ids)
             results = torch.squeeze(logits.to('cpu'))
-        predict_results = self.data_manager.extract_entities(sentence, results)
+        predict_results = self.data_manager.extract_entities(sentence, results, inference=True)
         self.logger.info('predict time consumption: %.3f(ms)' % ((time.time() - start_time) * 1000))
         results_dict = {}
         for class_id, result_set in predict_results.items():
