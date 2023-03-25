@@ -7,6 +7,7 @@ from engines.utils.logger import get_logger
 from configure import use_cuda, cuda_device, configure, mode
 from engines.data import DataManager
 from engines.utils.setup_seed import setup_seed
+from pprint import pprint
 import torch
 import os
 import json
@@ -66,7 +67,7 @@ if __name__ == '__main__':
             logger.info('input:{}'.format(str(sentence)))
             result = predictor.predict_one(sentence)
             logger.info('putput:{}'.format(str(result)))
-            print(result)
+            pprint(result)
     elif mode == 'test':
         from engines.predict import Predictor
         logger.info(json.dumps(configure, indent=2, ensure_ascii=False))
