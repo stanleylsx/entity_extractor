@@ -1,6 +1,6 @@
 torch==1.13.1
 torchaudio==0.13.1
 torchvision==0.14.1
-tqdm==4.64.1
-transformers==4.26.0
+tqdm==4.65.0
+transformers==4.27.3
 pytorch-crf==0.7.2
