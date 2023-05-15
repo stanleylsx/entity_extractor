@@ -68,7 +68,7 @@ class Train:
             model = BinaryPointer(num_labels=self.data_manager.span_num_labels).to(self.device)
         elif self.configs['model_type'].lower() == 'ptm_gp':
             from engines.models.GlobalPointer import EffiGlobalPointer
-            model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels).to(self.device)
+            model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels, device=self.device).to(self.device)
         elif self.configs['model_type'].lower() == 'ptm':
             from engines.models.TokenClassification import TokenClassification
             model = TokenClassification(num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
