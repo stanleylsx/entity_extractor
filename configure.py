@@ -14,7 +14,7 @@ mode = 'train'
 
 # 使用GPU设备
 use_cuda = True
-cuda_device = 1
+cuda_device = 0
 
 
 configure = {
