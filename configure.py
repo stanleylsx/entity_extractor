@@ -10,16 +10,16 @@
 # test:                 跑测试集
 # convert_onnx:         将torch模型保存onnx文件
 # show_model_info:      打印模型参数
-mode = 'interactive_predict'
+mode = 'train'
 
 # 使用GPU设备
 use_cuda = True
-cuda_device = -1
+cuda_device = 1
 
 
 configure = {
     # 训练数据集
-    'train_file': 'data/example_datasets5/train.json',
+    'train_file': 'data/example_datasets2/train_data.json',
     # 验证数据集
     'dev_file': '',
     # 使用交叉验证
@@ -34,14 +34,14 @@ configure = {
     # 中日韩等不需要空格的方块字: char
     'token_level': 'char',
     # 存放词表的地方
-    'token_file': 'data/example_datasets4/token2id.txt',
+    'token_file': 'data/example_datasets2/token2id.txt',
     # 使用的预训练模型
-    # 'ptm': 'hfl/chinese-bert-wwm-ext',
-    'ptm': 'Davlan/bert-base-multilingual-cased-ner-hrl',
+    'ptm': 'hfl/chinese-bert-wwm-ext',
+    # 'ptm': 'Davlan/bert-base-multilingual-cased-ner-hrl',
     # 使用的方法
     # sequence_tag:序列标注
     # span:方式
-    'method': 'sequence_tag',
+    'method': 'span',
     # 使用的模型
     # sequence label方式:
     # ptm crf: ptm_crf
@@ -53,7 +53,7 @@ configure = {
     # span方式:
     # binary pointer: ptm_bp
     # global pointer: ptm_gp
-    'model_type': 'ptm',
+    'model_type': 'ptm_gp',
     # 选择lstm时，隐藏层大小
     'hidden_dim': 200,
     # Embedding向量维度
@@ -61,14 +61,13 @@ configure = {
     # 选择idcnn时filter的个数
     'filter_nums': 64,
     # 模型保存的文件夹
-    'checkpoints_dir': 'checkpoints/example_datasets4',
+    'checkpoints_dir': 'checkpoints/example_datasets2',
     # 模型名字
-    'model_name': 'bert_crf.pkl',
+    'model_name': 'bert.pkl',
     # 类别列表
-    # 'span_classes': ['to', 'cc', 'bcc', 'subject', 'content', 'nums', 'type'],
     'span_classes': ['PER', 'ORG', 'LOC'],
-    # 'sequence_tag_classes': ['O', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC'],
-    'sequence_tag_classes': ['O', 'B-DATE', 'I-DATE', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC'],
+    'sequence_tag_classes': ['O', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC'],
+    # 'sequence_tag_classes': ['O', 'B-DATE', 'I-DATE', 'B-PER', 'I-PER', 'B-ORG', 'I-ORG', 'B-LOC', 'I-LOC'],
     # decision_threshold
     'decision_threshold': 0.5,
     # 使用bp和gp的时候是否使用苏神的多标签分类的损失函数，默认使用BCELoss
@@ -110,7 +109,7 @@ configure = {
     # epoch
     'epoch': 50,
     # batch_size
-    'batch_size': 8,
+    'batch_size': 24,
     # dropout rate
     'dropout_rate': 0.5,
     # 每print_per_batch打印损失函数
