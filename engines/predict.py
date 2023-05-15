@@ -25,8 +25,7 @@ class Predictor:
             self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
         elif self.configs['model_type'].lower() == 'ptm_gp':
             from engines.models.GlobalPointer import EffiGlobalPointer
-            self.model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels,
-                                           device=self.device).to(self.device)
+            self.model = EffiGlobalPointer(num_labels=self.data_manager.span_num_labels).to(self.device)
             self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
         elif self.configs['model_type'].lower() == 'ptm':
             from engines.models.TokenClassification import TokenClassification

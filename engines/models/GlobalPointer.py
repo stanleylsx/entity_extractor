@@ -6,10 +6,9 @@ from configure import mode, configure
 
 
 class EffiGlobalPointer(nn.Module):
-    def __init__(self, num_labels, device, rope=True):
+    def __init__(self, num_labels, rope=True):
         super(EffiGlobalPointer, self).__init__()
         self.encoder = BertModel.from_pretrained(configure['ptm'])
-        self.device = device
         self.inner_dim = 64
         self.hidden_size = self.encoder.config.hidden_size
         self.RoPE = rope
@@ -19,13 +18,16 @@ class EffiGlobalPointer(nn.Module):
         self.dense_1 = nn.Linear(self.hidden_size, self.inner_dim * 2)
         self.dense_2 = nn.Linear(self.hidden_size, num_labels * 2)
 
-    def sinusoidal_position_embedding(self, seq_len, output_dim):
+    @staticmethod
+    def sinusoidal_position_embedding(seq_len, output_dim):
         position_ids = torch.arange(0, seq_len, dtype=torch.float).unsqueeze(-1)
         indices = torch.arange(0, output_dim // 2, dtype=torch.float)
         indices = torch.pow(10000, -2 * indices / output_dim)
         embeddings = position_ids * indices
         embeddings = torch.stack([torch.sin(embeddings), torch.cos(embeddings)], dim=-1)
-        embeddings = torch.reshape(embeddings, (-1, seq_len, output_dim)).to(self.device)
+        embeddings = torch.reshape(embeddings, (-1, seq_len, output_dim))
+        if mode == 'convert_onnx':
+            embeddings = embeddings.to('cpu')
         return embeddings
 
     @staticmethod
