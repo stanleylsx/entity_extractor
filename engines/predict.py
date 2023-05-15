@@ -93,12 +93,12 @@ class Predictor:
         dummy_input = torch.ones([1, max_sequence_length]).to('cpu').int()
         onnx_path = self.checkpoints_dir + '/model.onnx'
         if self.configs['method'] == 'sequence_tag':
-            torch.onnx.export(self.model.to('cpu'), dummy_input, f=onnx_path, opset_version=13,
+            torch.onnx.export(self.model.to('cpu'), dummy_input, f=onnx_path, opset_version=14,
                               input_names=['tokens'], output_names=['decode'],
                               do_constant_folding=False,
                               dynamic_axes={'tokens': {0: 'batch_size'}, 'decode': {0: 'decode'}})
         else:
-            torch.onnx.export(self.model.to('cpu'), dummy_input, f=onnx_path, opset_version=13,
+            torch.onnx.export(self.model.to('cpu'), dummy_input, f=onnx_path, opset_version=14,
                               input_names=['tokens'], output_names=['logits', 'probs'],
                               do_constant_folding=False,
                               dynamic_axes={'tokens': {0: 'batch_size'}, 'logits': {0: 'batch_size'},
