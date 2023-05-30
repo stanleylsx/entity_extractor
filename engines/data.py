@@ -250,7 +250,8 @@ class DataManager:
         label_vectors = []
         text_list = [item.get('text') for item in data]
         if self.configs['method'] == 'span':
-            token_results = self.tokenizer.batch_encode_plus(text_list, padding=True, return_tensors='pt')
+            token_results = self.tokenizer.batch_encode_plus(text_list, padding=True, truncation=True,
+                                                             max_length=self.max_sequence_length, return_tensors='pt')
             token_ids_list = token_results.get('input_ids')
             token_length = token_ids_list.size(1)
             for item in zip(data, text_list):
