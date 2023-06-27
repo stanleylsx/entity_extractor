@@ -35,7 +35,7 @@ configure = {
     'token_level': 'char',
     # 存放词表的地方
     'token_file': 'data/example_datasets2/token2id.txt',
-    # 使用的预训练模型
+    # 使用的预训练模型，这个地方的模型路径是和huggingface上的路径对应的
     'ptm': 'hfl/chinese-bert-wwm-ext',
     # 'ptm': 'Davlan/bert-base-multilingual-cased-ner-hrl',
     # 使用的方法
