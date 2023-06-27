@@ -64,7 +64,7 @@ tricks| 细节
 :---|-------
 kfold交叉验证|支持
 不使用预训练模型时候的字词粒度|可以选择
-支持的ner任务|序列标注、span方式、global_pointer、传统的crf的各类组合，具体请看configure.py文件
+支持的ner任务|序列标注、span方式、global_pointer、传统的crf的各类组合，具体请看configure.py文件的method和model_type两个字段，可以进行组合
 损失函数|span方法可选苏神的多标签损失函数、BCELoss，crf默认使用对数似然损失、logints方法使用交叉熵损失
 对抗方法|fgsm、fgm、pgd、awp
 noisy_tune|支持
