@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
-# @File : configure.py
+# @File : config.py
 # @Software: VScode
 
 # 模式

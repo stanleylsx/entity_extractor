@@ -2,7 +2,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : main.py
-# @Software: PyCharm
+# @Software: VScode
 from loguru import logger
 from config import use_cuda, cuda_device, configure, mode
 from engines.data import DataManager
@@ -20,10 +20,6 @@ def fold_check(configures):
     if not os.path.exists(configures['checkpoints_dir']):
         print('checkpoints fold not found, creating...')
         os.makedirs(configures['checkpoints_dir'])
-
-    if not os.path.exists(configures['checkpoints_dir'] + '/logs'):
-        print('log fold not found, creating...')
-        os.mkdir(configures['checkpoints_dir'] + '/logs')
 
 
 if __name__ == '__main__':
