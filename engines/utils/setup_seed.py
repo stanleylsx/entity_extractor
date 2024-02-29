@@ -3,7 +3,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : setup_seed.py
-# @Software: PyCharm
+# @Software: VScode
 import numpy as np
 import random
 import os

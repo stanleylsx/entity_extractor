@@ -2,7 +2,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : train.py
-# @Software: PyCharm
+# @Software: VScode
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from sklearn.model_selection import KFold
@@ -74,8 +74,9 @@ class Train:
             model = TokenClassification(num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
         else:
             from engines.models.SequenceTagCRF import SequenceTagCRF
-            model = SequenceTagCRF(vocab_size=self.data_manager.vocab_size,
-                                num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
+            model = SequenceTagCRF(
+                vocab_size=self.data_manager.vocab_size,
+                num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
 
         if 'ptm' in self.configs['model_type'] and self.configs['noisy_tune']:
             for name, para in model.named_parameters():
@@ -310,7 +311,7 @@ class Train:
                         self.configs['patient']))
                     self.logger.info('overall best f1 is {} at {} epoch'.format(best_f1, best_epoch))
                     self.logger.info('total training time consumption: %.3f(min)' % (
-                            (time.time() - very_start_time) / 60))
+                        (time.time() - very_start_time) / 60))
                     return
         self.logger.info('overall best f1 is {} at {} epoch'.format(best_f1, best_epoch))
         self.logger.info('total training time consumption: %.3f(min)' % ((time.time() - very_start_time) / 60))
@@ -350,7 +351,7 @@ class Train:
                 self.train_each_fold(model, train_loader, val_loader, fold_index=fold)
                 fold = fold + 1
             self.logger.info('\nKfold: total training time consumption: %.3f(min)' % (
-                    (time.time() - kfold_start_time) / 60))
+                (time.time() - kfold_start_time) / 60))
         else:
             model = self.init_model()
             if os.path.exists(os.path.join(self.checkpoints_dir, self.model_name)):
@@ -400,7 +401,7 @@ class Train:
                         counts[class_id]['C'] += len(entity_set)
         for class_id, count in counts.items():
             f1, precision, recall = 2 * count['A'] / (
-                    count['B'] + count['C']), count['A'] / count['B'], count['A'] / count['C']
+                count['B'] + count['C']), count['A'] / count['B'], count['A'] / count['C']
             class_name = self.data_manager.span_reverse_categories[class_id]
             results_of_each_entity[class_name]['f1'] = f1
             results_of_each_entity[class_name]['precision'] = precision
@@ -410,8 +411,8 @@ class Train:
         for entity, performance in results_of_each_entity.items():
             f1 += performance['f1']
             # 打印每个类别的指标
-            self.logger.info('entity_name: %s, precision: %.4f, recall: %.4f, f1: %.4f'
-                        % (entity, performance['precision'], performance['recall'], performance['f1']))
+            self.logger.info('entity_name: %s, precision: %.4f, recall: %.4f, f1: %.4f' % (
+                entity, performance['precision'], performance['recall'], performance['f1']))
         # 这里算得是所有类别的平均f1值
         f1 = f1 / len(results_of_each_entity)
         return f1

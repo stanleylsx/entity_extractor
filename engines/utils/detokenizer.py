@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # @Time : 2023/1/9 10:28
 # @Author : Stanley
-# @EMail : gzlishouxian@corp.netease.com
+# @EMail : gzlishouxian@gmail.com
 # @File : detokenizer.py
-# @Software: PyCharm
+# @Software: VScode
 import re
 
 
@@ -120,4 +120,3 @@ class Detokenizer:
             text = regexp.sub(substitution, text)
 
         return text.strip()
-

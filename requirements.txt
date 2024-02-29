@@ -4,3 +4,4 @@ torchvision==0.15.2
 tqdm==4.65.0
 transformers==4.28.1
 pytorch-crf==0.7.2
+loguru==0.7.0

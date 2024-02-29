@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
+# @Author : lishouxian
+# @Email : gzlishouxian@gmail.com
+# @File : GlobalPointer.py
+# @Software: VScode
 import torch
 import torch.nn as nn
 from transformers import BertModel
-from configure import mode, configure
+from config import mode, configure
 
 
 class EffiGlobalPointer(nn.Module):

@@ -2,7 +2,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : losses.py
-# @Software: PyCharm
+# @Software: VScode
 import torch
 
 

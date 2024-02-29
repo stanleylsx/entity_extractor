@@ -2,7 +2,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : configure.py
-# @Software: PyCharm
+# @Software: VScode
 
 # 模式
 # train:                训练分类器

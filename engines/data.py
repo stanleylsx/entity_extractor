@@ -2,7 +2,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : data.py
-# @Software: PyCharm
+# @Software: VScode
 from transformers import BertTokenizerFast
 from tqdm import tqdm
 from engines.utils.make_regex import make_regex
@@ -365,7 +365,7 @@ class DataManager:
                 model_output = model_output[:len(token2char_span_mapping)]
             else:
                 if 'ptm' in self.configs['model_type']:
-                    model_output = model_output[:len(token2char_span_mapping)-2]
+                    model_output = model_output[:len(token2char_span_mapping) - 2]
             predict_label = [str(self.sequence_tag_reverse_categories[int(lab)]) for lab in model_output]
             start, end = 0, 0
 
@@ -392,7 +392,7 @@ class DataManager:
                                     entity_loc = [start_mapping[start + 1], end_mapping[end]]
                                 else:
                                     entity = text[start: end]
-                                    entity_loc = [start, end-1]
+                                    entity_loc = [start, end - 1]
                             if inference:
                                 predict_results.setdefault(self.span_categories[entity_type], []).append(
                                     {'entity': entity, 'entity_loc': entity_loc})

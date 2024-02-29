@@ -3,13 +3,13 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : SequenceTagCRF.py
-# @Software: PyCharm
+# @Software: VScode
 from abc import ABC
 
 import torch
 from transformers import BertModel
 from torch import nn
-from configure import configure
+from config import configure
 from torchcrf import CRF
 
 

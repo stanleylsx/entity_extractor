@@ -3,8 +3,8 @@
 # @Email : gzlishouxian@gmail.com
 # @File : main.py
 # @Software: PyCharm
-from engines.utils.logger import get_logger
-from configure import use_cuda, cuda_device, configure, mode
+from loguru import logger
+from config import use_cuda, cuda_device, configure, mode
 from engines.data import DataManager
 from engines.utils.setup_seed import setup_seed
 from pprint import pprint
@@ -30,7 +30,8 @@ if __name__ == '__main__':
     os.environ['TOKENIZERS_PARALLELISM'] = 'false'
     setup_seed(configure['seed'])
     fold_check(configure)
-    logger = get_logger(configure['checkpoints_dir'] + '/logs', mode)
+    log_name = './logs/' + mode + '.log'
+    logger.add(log_name, encoding='utf-8')
 
     if use_cuda:
         if torch.cuda.is_available():

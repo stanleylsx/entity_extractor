@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 # @Time : 2022/09/23 16:03 下午
 # @Author : Stanley
-# @EMail : gzlishouxian@corp.netease.com
+# @EMail : gzlishouxian@gmail.com
 # @File : ema.py
-# @Software: PyCharm
+# @Software: VScode
 
 
 class EMA:
@@ -42,5 +42,3 @@ class EMA:
                 assert name in self.backup
                 param.data = self.backup[name]
         self.backup = {}
-
-

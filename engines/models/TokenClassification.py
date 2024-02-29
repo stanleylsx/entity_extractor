@@ -3,9 +3,9 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : TokenClassification.py
-# @Software: PyCharm
+# @Software: VScode
 import torch
-from configure import configure
+from config import configure
 from transformers import AutoModelForTokenClassification
 
 

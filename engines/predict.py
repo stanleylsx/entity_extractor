@@ -2,7 +2,7 @@
 # @Author : lishouxian
 # @Email : gzlishouxian@gmail.com
 # @File : predict.py
-# @Software: PyCharm
+# @Software: VScode
 import torch
 import os
 import time
@@ -36,8 +36,9 @@ class Predictor:
                 self.model.load_state_dict(torch.load(model_path))
         else:
             from engines.models.SequenceTagCRF import SequenceTagCRF
-            self.model = SequenceTagCRF(vocab_size=self.data_manager.vocab_size,
-                                num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
+            self.model = SequenceTagCRF(
+                vocab_size=self.data_manager.vocab_size,
+                num_labels=self.data_manager.sequence_tag_num_labels).to(self.device)
             self.model.load_state_dict(torch.load(os.path.join(self.checkpoints_dir, self.model_name)))
         self.model.eval()
 
